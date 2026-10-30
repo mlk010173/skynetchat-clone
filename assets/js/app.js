@@ -19,7 +19,8 @@
     currentId: null,
     theme: 'black',
     logged: false,
-    credits: 5,
+    pro: true,
+    credits: 99,
     settings: {
       engine: 'demo', // demo | api
       endpoint: 'https://api.openai.com/v1/chat/completions',
@@ -180,6 +181,64 @@
     return pick(DEMO.generic).replace('{q}', clean);
   }
 
+
+  /* ------------------------ log de pensamento ----------------------- */
+  function buildSteps(prompt, mode) {
+    const p = (prompt || '').toLowerCase();
+    const steps = [];
+    steps.push({ label: 'entrada', text: `"${prompt.trim().slice(0, 90)}"` });
+    steps.push({ label: 'analisar', text: /c[oó]digo|program|api|fun[çc][aã]o|script/.test(p) ? 'intenção: código / implementação' : /pesquis|fonte|not[ií]cia|quem|quando/.test(p) ? 'intenção: pesquisa factual' : /imagem|foto|arte/.test(p) ? 'intenção: geração visual' : 'intenção: resposta direta' });
+    steps.push({ label: 'contexto', text: `histórico: ${Math.max(0, (currentConv()?.messages.length || 1) - 1)} mensagens · idioma: pt-BR` });
+    steps.push({ label: 'modo', text: mode === 'Pesquisa' ? 'pesquisa na web + síntese' : mode === 'MAX' ? '4.5 MAX · raciocínio profundo' : '4.5 Rápido · resposta direta' });
+    if (mode === 'Pesquisa') steps.push({ label: 'buscar', text: 'consultando índice e cruzando fontes' });
+    if (/c[oó]digo|program|api|fun[çc][aã]o|script/.test(p)) steps.push({ label: 'plano', text: 'esboçar snippet mínimo, comentar e testar o fluxo de dados' });
+    steps.push({ label: 'compor', text: 'estruturar resposta em markdown' });
+    steps.push({ label: 'revisar', text: 'checar coerência, tamanho e tom' });
+    return steps;
+  }
+
+  function traceEl() {
+    const wrap = document.createElement('div');
+    wrap.className = 'sk-trace open';
+    wrap.innerHTML = `
+      <button type="button" class="sk-trace-head" data-trace-toggle>
+        <span class="sk-trace-arrow">▾</span>
+        <span>Pensamento</span>
+        <span class="sk-trace-meta" data-trace-meta>0 passos</span>
+        <span class="sk-trace-tag">${S.settings.engine === 'api' ? 'API' : 'demo'}</span>
+      </button>
+      <div class="sk-trace-body" data-trace-body></div>`;
+    wrap.querySelector('[data-trace-toggle]').addEventListener('click', () => {
+      wrap.classList.toggle('open');
+      wrap.querySelector('.sk-trace-arrow').textContent = wrap.classList.contains('open') ? '▾' : '▸';
+    });
+    return wrap;
+  }
+
+  function traceLine(label, text) {
+    const d = document.createElement('div');
+    d.className = 'sk-trace-line';
+    d.innerHTML = `<span class="sk-dot"></span><b>${esc(label)}</b><span>${esc(text)}</span>`;
+    return d;
+  }
+
+  function sourcesBlock(prompt) {
+    const q = encodeURIComponent(prompt.trim().slice(0, 120));
+    return `**Fontes consultadas (abrir para conferir)**
+
+` +
+      `- [Busca web](${'https://duckduckgo.com/?q='}${q})
+` +
+      `- [Google](${'https://www.google.com/search?q='}${q})
+` +
+      `- [Notícias](${'https://news.google.com/search?q='}${q}&hl=pt-BR'})
+` +
+      `- [Wikipédia](${'https://pt.wikipedia.org/w/index.php?search='}${q})
+
+` +
+      `> A busca acima é executada no seu navegador. Para respostas sintetizadas com fontes ao vivo, ative o modo **API** em *Configurar IA*.`;
+  }
+
   /* ------------------------ real API streaming ---------------------- */
   async function apiStream(messages, onDelta, signal) {
     const cfg = S.settings;
@@ -337,7 +396,7 @@
       setTimeout(() => (location.href = 'login.html'), 500);
       return;
     }
-    if (S.credits <= 0) {
+    if (!S.pro && S.credits <= 0) {
       openPanel('pro');
       return;
     }
@@ -360,12 +419,19 @@
     const actions = li.querySelector('[data-ai-actions]');
     const body = li.querySelector('[data-ai-body]');
     content.innerHTML = '<span class="sk-thinking"><i></i><i></i><i></i></span>';
+
+    const mode = ($('.composer-mode-label') || {}).textContent?.trim() || 'Rápido';
+    const steps = buildSteps(prompt, mode);
+    const trace = traceEl();
+    li.insertBefore(trace, body);
+    const traceBody = trace.querySelector('[data-trace-body]');
+    const traceMeta = trace.querySelector('[data-trace-meta]');
     scrollToEnd();
 
     generating = true;
     abortCtrl = new AbortController();
     setComposerBusy(true);
-    S.credits = Math.max(0, S.credits - 1);
+    if (!S.pro) S.credits = Math.max(0, S.credits - 1);
     renderCredits();
 
     let acc = '';
@@ -381,7 +447,20 @@
       if (!raf) raf = requestAnimationFrame(paint);
     };
 
+    const t0 = performance.now();
     try {
+      // log de pensamento (streaming das etapas)
+      for (const st of steps) {
+        if (!generating) break;
+        traceBody.appendChild(traceLine(st.label, st.text));
+        traceMeta.textContent = `${traceBody.children.length} passos · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
+        scrollToEnd();
+        await new Promise((r) => setTimeout(r, 90 + Math.random() * 120));
+      }
+      const finalLine = traceLine('gerar', 'escrevendo resposta em tempo real');
+      traceBody.appendChild(finalLine);
+      scrollToEnd();
+
       if (S.settings.engine === 'api' && S.settings.endpoint) {
         const msgs = conv.messages
           .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -402,12 +481,16 @@
     }
 
     if (raf) cancelAnimationFrame(raf);
+    if (mode === 'Pesquisa') acc += `\n\n---\n\n${sourcesBlock(prompt)}`;
+    traceMeta.textContent = `${traceBody.children.length} passos · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
+    trace.classList.remove('open');
+    trace.querySelector('.sk-trace-arrow').textContent = '▸';
     content.innerHTML = mdBlocks(acc || '_(sem resposta)_');
     actions.style.opacity = '1';
     actions.style.pointerEvents = 'auto';
     body.classList.remove('is-streaming');
 
-    conv.messages.push({ role: 'assistant', content: acc, ts: Date.now() });
+    conv.messages.push({ role: 'assistant', content: acc, trace: steps, ts: Date.now() });
     conv.updated = Date.now();
     save();
     renderHistory();
@@ -673,24 +756,40 @@
     const host = body || ($('.sk-overlay[data-panel="history"] [data-body]') || null);
     if (!host) return;
     const items = S.conversations.filter((c) => c.messages.length);
-    if (!items.length) {
-      host.innerHTML = '<div class="sk-empty">Nenhuma conversa ainda.</div>';
-      return;
-    }
-    host.innerHTML = `<div class="sk-list">${items
-      .map(
-        (c) => `<button class="sk-item" data-open="${c.id}">
-          <span class="sk-item-title">${esc(c.title)}</span>
-          <small>${new Date(c.updated).toLocaleDateString('pt-BR')}</small>
-        </button>`
-      )
-      .join('')}</div>`;
-    $$('[data-open]', host).forEach((b) =>
-      b.addEventListener('click', () => {
-        loadConv(b.getAttribute('data-open'));
-        closePanel('history');
-      })
-    );
+    host.innerHTML = `
+      <div class="sk-search-row">
+        <input type="search" placeholder="Buscar nas conversas..." data-hist-q>
+        <button class="sk-btn ghost" data-export title="Exportar JSON">⤓</button>
+      </div>
+      <div data-hist-list></div>`;
+    const list = $('[data-hist-list]', host);
+    const paint = (q) => {
+      const f = items.filter((c) => !q || (c.title + ' ' + c.messages.map((m) => m.content).join(' ')).toLowerCase().includes(q));
+      if (!f.length) { list.innerHTML = '<div class="sk-empty">Nenhuma conversa encontrada.</div>'; return; }
+      list.innerHTML = `<div class="sk-list">${f.map((c) => `<div class="sk-item" data-row="${c.id}">
+        <button class="sk-item-title" data-open="${c.id}" style="background:none;border:0;color:inherit;text-align:left;cursor:pointer;padding:0;font:inherit">
+          <strong>${esc(c.title)}</strong><br><small>${c.messages.length} msgs · ${new Date(c.updated).toLocaleString('pt-BR')}</small>
+        </button>
+        <button class="sk-close" data-del="${c.id}" title="Apagar" style="width:24px;height:24px">✕</button>
+      </div>`).join('')}</div>`;
+      $$('[data-open]', list).forEach((b) => b.addEventListener('click', () => { loadConv(b.getAttribute('data-open')); closePanel('history'); }));
+      $$('[data-del]', list).forEach((b) => b.addEventListener('click', () => {
+        S.conversations = S.conversations.filter((c) => c.id !== b.getAttribute('data-del'));
+        save(); renderHistory(host); toast('Conversa apagada');
+      }));
+    };
+    paint('');
+    const q = $('[data-hist-q]', host);
+    if (q) q.addEventListener('input', () => paint(q.value.toLowerCase().trim()));
+    const ex = $('[data-export]', host);
+    if (ex) ex.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(S.conversations, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'skynetchat-conversas.json';
+      a.click();
+      toast('Backup exportado');
+    });
   }
 
   /* ---- painel: prompts ---- */
@@ -713,6 +812,15 @@
           </button>`
         )
         .join('')}</div>`;
+      const demoBtn = document.createElement('button');
+      demoBtn.className = 'sk-btn ghost';
+      demoBtn.style.marginTop = '12px';
+      demoBtn.textContent = 'Ver conversa de exemplo (com log)';
+      demoBtn.addEventListener('click', () => {
+        closePanel('prompts');
+        seedExample();
+      });
+      body.appendChild(demoBtn);
       $$('[data-p]', body).forEach((b) =>
         b.addEventListener('click', () => {
           const p = prompts[Number(b.getAttribute('data-p'))][1];
@@ -803,6 +911,12 @@
         <div class="sk-field"><label>Modelo</label><input data-f="model" value="${esc(s.model)}" placeholder="gpt-4o-mini"></div>
         <div class="sk-field"><label>Chave da API</label><input data-f="key" type="password" value="${esc(s.key)}" placeholder="sk-..."></div>
         <div class="sk-field"><label>Prompt de sistema</label><textarea data-f="system" rows="3">${esc(s.system)}</textarea></div>
+        <div class="sk-field"><label>Conta</label>
+          <select data-f="pro">
+            <option value="1" ${S.pro ? 'selected' : ''}>PRO desbloqueado (tudo liberado)</option>
+            <option value="0" ${!S.pro ? 'selected' : ''}>Free (5 mensagens)</option>
+          </select>
+        </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="sk-btn" data-save>Salvar</button>
           <button class="sk-btn ghost" data-reset>Restaurar créditos</button>
@@ -814,7 +928,9 @@
         S.settings.model = $('[data-f="model"]', body).value.trim();
         S.settings.key = $('[data-f="key"]', body).value.trim();
         S.settings.system = $('[data-f="system"]', body).value;
+        S.pro = $('[data-f="pro"]', body).value === '1';
         save();
+        initProBadge();
         toast('Configuração salva');
       });
       $('[data-reset]', body).addEventListener('click', () => {
@@ -1014,6 +1130,15 @@
       if (m.role === 'user') listEl.appendChild(bubbleUser(m.content));
       else {
         const li = bubbleAssistant();
+        if (m.trace && m.trace.length) {
+          const tr = traceEl();
+          tr.classList.remove('open');
+          tr.querySelector('.sk-trace-arrow').textContent = '▸';
+          const tb = tr.querySelector('[data-trace-body]');
+          m.trace.forEach((st) => tb.appendChild(traceLine(st.label, st.text)));
+          tr.querySelector('[data-trace-meta]').textContent = `${m.trace.length} passos`;
+          li.insertBefore(tr, li.firstChild);
+        }
         li.querySelector('[data-ai-content]').innerHTML = mdBlocks(m.content);
         const a = li.querySelector('[data-ai-actions]');
         a.style.opacity = '1';
@@ -1075,6 +1200,65 @@
     if (submit) submit.addEventListener('click', doLogin);
   }
 
+
+
+  /* ------------------- conversa de exemplo (demo) -------------------- */
+  function seedExample() {
+    const c = newConv();
+    c.title = 'Exemplo · pesquisa + streaming';
+    const q = 'Como funciona o streaming de IA e por que ele deixa a resposta mais rápida?';
+    c.messages.push({ role: 'user', content: q, ts: Date.now() });
+    c.messages.push({
+      role: 'assistant',
+      trace: buildSteps(q, 'Pesquisa'),
+      content: `**Resposta curta:** o modelo não espera terminar para responder. Ele gera *pedaços* (tokens) e cada pedaço é enviado para o navegador assim que existe.\n\n**O caminho completo**\n\n1. O prompt vai para o servidor (ou direto para a API do modelo).\n2. O modelo produz tokens em sequência.\n3. O servidor repassa cada token por uma conexão aberta — SSE ou *stream* binário.\n4. O navegador lê com \`ReadableStream\` e pinta na tela.\n\n\`\`\`javascript\nconst res = await fetch('/api/chat', { method: 'POST', body });\nconst reader = res.body.getReader();\nwhile (true) {\n  const { done, value } = await reader.read();\n  if (done) break;\n  render(new TextDecoder().decode(value));\n}\n\`\`\`\n\n**Por que parece mais rápido**\n\n- O tempo total é o mesmo, mas a **primeira palavra** chega em milissegundos.\n- Você começa a ler antes do fim, então a espera percebida cai.\n\n---\n\n${sourcesBlock(q)}`,
+      ts: Date.now() + 1,
+    });
+    save();
+    loadConv(c.id);
+    renderHistory();
+    toast('Conversa de exemplo carregada');
+  }
+
+  /* ----------------------- ditado por voz ---------------------------- */
+  function initVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    $$('[aria-label="Gravar áudio"]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!SR) return toast('Ditado por voz não suportado neste navegador');
+        const ta = $('form textarea');
+        if (!ta) return;
+        const rec = new SR();
+        rec.lang = 'pt-BR';
+        rec.interimResults = true;
+        rec.continuous = false;
+        const base = ta.value;
+        btn.style.color = 'var(--sk-accent)';
+        rec.onresult = (ev) => {
+          let txt = '';
+          for (let i = ev.resultIndex; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+          ta.value = (base ? base + ' ' : '') + txt;
+          ta.dispatchEvent(new Event('input'));
+        };
+        rec.onerror = () => toast('Não consegui ouvir. Tente novamente.');
+        rec.onend = () => { btn.style.color = ''; };
+        try { rec.start(); toast('Ouvindo...'); } catch (err) { btn.style.color = ''; }
+      });
+    });
+  }
+
+  /* ------------------------- badge PRO ------------------------------- */
+  function initProBadge() {
+    const version = $('.version-selector');
+    if (!version || !S.pro) return;
+    if (version.querySelector('.sk-badge-pro')) return;
+    const badge = document.createElement('span');
+    badge.className = 'sk-badge-pro';
+    badge.textContent = 'PRO';
+    badge.title = 'Recursos PRO desbloqueados neste clone';
+    version.appendChild(badge);
+  }
 
   /* --------------- widget de suporte embutido ------------------------ */
   function initSupportWidget() {
@@ -1193,6 +1377,8 @@
     initComposer();
     initParticles();
     initSupportWidget();
+    initVoice();
+    initProBadge();
     wireDrawer();
     renderLoggedState();
     renderCredits();
@@ -1215,13 +1401,18 @@
     // modo (Rápido / MAX)
     const modeBtn = $('.composer-mode');
     if (modeBtn) {
+      const MODES = ['Rápido', 'MAX', 'Pesquisa'];
       modeBtn.addEventListener('click', (e) => {
         e.preventDefault();
         const label = $('.composer-mode-label', modeBtn);
         if (!label) return;
-        label.textContent = label.textContent.trim() === 'Rápido' ? 'MAX' : 'Rápido';
-        toast('Modo ' + label.textContent);
+        const i = MODES.indexOf(label.textContent.trim());
+        const next = MODES[(i + 1) % MODES.length];
+        label.textContent = next;
+        modeBtn.dataset.mode = next;
+        toast(next === 'MAX' ? '4.5 MAX desbloqueado' : 'Modo ' + next);
       });
+      modeBtn.dataset.mode = 'Rápido';
     }
   }
 
