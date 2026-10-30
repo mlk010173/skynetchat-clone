@@ -289,3 +289,60 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
   color: #8b8b8b; font-size: 22px; overflow: hidden; object-fit: cover;
 }
 .sk-avatar-sm { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 4px; }
+
+/* ================= MÓVEL ================= */
+@media (max-width: 900px) {
+  /* seletor de modo (Rápido/MAX/Pesquisa) estava escondido no mobile */
+  .composer-mode {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 9px;
+    font-size: 11px;
+    line-height: 1;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 999px;
+    background: rgba(255,255,255,.04);
+    white-space: nowrap;
+  }
+  form div:has(> .composer-mode) {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+  }
+  form .composer-mode-label { font-size: 11px; }
+
+  /* barra do composer acima da home bar do iPhone */
+  form:has(textarea) {
+    padding-bottom: calc(2px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* toque confortável */
+  .sk-attach-chip button { min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+  .sk-quick button { min-height: 34px; }
+  .sk-btn { min-height: 40px; }
+  .sk-close { min-width: 32px; min-height: 32px; }
+  .sk-item button, .sk-item-title { min-height: 32px; }
+
+  /* painéis: nunca estourar a tela, rolar por dentro */
+  .sk-overlay > div {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    width: calc(100vw - 20px);
+    max-width: 100%;
+  }
+  .sk-overlay { padding: 10px; }
+
+  /* campos com 16px evitam o zoom automático do iOS */
+  .sk-overlay input, .sk-overlay textarea, .sk-overlay select { font-size: 16px; }
+  .sk-trace-line { font-size: 11px; }
+  .sk-trace-line b { min-width: 54px; }
+  .support-widget { max-width: calc(100vw - 20px); right: 10px; left: auto; }
+}
+
+@media (max-width: 380px) {
+  .composer-mode { font-size: 10px; padding: 0 7px; }
+  .sk-msg-file { max-width: 100%; }
+}
