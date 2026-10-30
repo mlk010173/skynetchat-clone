@@ -425,7 +425,7 @@
     form.insertBefore(chips, form.firstChild);
 
     const attachBtn = form.querySelector('[aria-label="Anexar arquivo"]');
-    if (attachBtn) attachBtn.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+    if (attachBtn) attachBtn.addEventListener('click', (e) => { e.preventDefault(); openAttachMenu(); });
     fileInput.addEventListener('change', () => { readAttachments(fileInput.files); fileInput.value = ''; });
 
     // arrastar e soltar / colar imagem
@@ -547,7 +547,6 @@
     }
 
     if (raf) cancelAnimationFrame(raf);
-    if (mode === 'Pesquisa') acc += `\n\n---\n\n${sourcesBlock(enginePrompt)}`;
     traceMeta.textContent = `${traceBody.children.length} passos · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
     trace.classList.add('open');
     trace.querySelector('.sk-trace-arrow').textContent = '▾';
@@ -561,6 +560,16 @@
     save();
     renderHistory();
 
+    if (mode === 'Pesquisa') {
+      try {
+        const last = listEl.lastElementChild;
+        const card = sourcesCard(enginePrompt);
+        if (last && last.querySelector('[data-ai-content]')) last.appendChild(card); else listEl.appendChild(card);
+        const am = conv.messages[conv.messages.length - 1];
+        if (am && am.role === 'assistant') am.sources = true;
+        save();
+      } catch (e) { console.warn('[SKYNET] fontes', e); }
+    }
     generating = false;
     abortCtrl = null;
     setComposerBusy(false);
@@ -1052,12 +1061,12 @@
         S.profile.avatar = data;
         save();
         renderHeaderAvatar();
-        openPanel('profile');
+        openPanel('account');
         toast('Foto atualizada');
       });
       const rm = $('[data-rm-photo]', body);
       if (rm) rm.addEventListener('click', () => {
-        S.profile.avatar = null; save(); renderHeaderAvatar(); openPanel('profile'); toast('Foto removida');
+        S.profile.avatar = null; save(); renderHeaderAvatar(); openPanel('account'); toast('Foto removida');
       });
       $('[data-save-profile]', body).addEventListener('click', () => {
         S.profile.name = $('[data-p="name"]', body).value.trim();
@@ -1066,7 +1075,7 @@
         save();
         renderHeaderAvatar();
         toast('Perfil salvo');
-        openPanel('profile');
+        openPanel('account');
       });
       $('[data-account]', body).addEventListener('click', () => openPanel('settings'));
       $('[data-logout]', body).addEventListener('click', () => logout());
@@ -1583,7 +1592,7 @@
         b.setAttribute('aria-label', 'Sua conta');
         b.addEventListener('click', (e) => {
           e.preventDefault();
-          openPanel('profile');
+          openPanel('account');
         });
       }
     });
@@ -1606,7 +1615,7 @@
         nav.appendChild(extra);
         extra.children[0].addEventListener('click', () => { closeDrawer(); openPanel('settings'); });
         extra.children[1].addEventListener('click', () => { closeDrawer(); openPanel('history'); });
-        extra.children[2].addEventListener('click', () => { closeDrawer(); openPanel('profile'); });
+        extra.children[2].addEventListener('click', () => { closeDrawer(); openPanel('account'); });
       }
     }
   }
@@ -1618,6 +1627,8 @@
       ['support', initSupportWidget],
       ['voice', initVoice],
       ['pro', initProBadge],
+      ['limit', initLimitUi],
+      ['theme-item', wireThemeItem],
     ].forEach(([name, fn]) => {
       try { fn(); } catch (err) { console.warn('[SKYNET] init ' + name + ' falhou:', err); }
     });
@@ -1688,9 +1699,283 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    window.SKYNET = {
+  
+  /* ===================== UI avançada (sheet, ferramentas, fontes, conta) ===================== */
+
+  function skSheet(title, inner, opts) {
+    const root = document.createElement('div');
+    root.className = 'sk-sheet-root';
+    root.innerHTML =
+      '<div class="sk-sheet-backdrop"></div>' +
+      '<div class="sk-sheet' + (opts && opts.wide ? ' sk-sheet-wide' : '') + '" role="dialog" aria-label="' + esc(title) + '">' +
+      (title ? '<div class="sk-sheet-head"><strong>' + esc(title) + '</strong><button class="sk-sheet-x" aria-label="Fechar">✕</button></div>' : '') +
+      '<div class="sk-sheet-body">' + inner + '</div></div>';
+    const close = () => { root.classList.remove('is-open'); setTimeout(() => root.remove(), 200); };
+    root.querySelector('.sk-sheet-backdrop').addEventListener('click', close);
+    const x = root.querySelector('.sk-sheet-x');
+    if (x) x.addEventListener('click', close);
+    document.body.appendChild(root);
+    requestAnimationFrame(() => root.classList.add('is-open'));
+    return { root, close, body: root.querySelector('.sk-sheet-body') };
+  }
+
+  function setMode(m) {
+    const lb = $('.composer-mode-label');
+    if (lb) lb.textContent = m;
+    const mb = $('.composer-mode');
+    if (mb) mb.dataset.mode = m;
+    const chip = $('.sk-mode-mobile');
+    if (chip) { chip.innerHTML = '<b>◆</b> ' + esc(m); chip.setAttribute('aria-label', 'Modo de IA: ' + m); }
+    toast('Modo ' + m);
+  }
+
+  const TOOLS = [
+    { sec: 'PESQUISA & INTELIGÊNCIA' },
+    { id: 'web', icon: '🌐', name: 'Busca na Web', desc: 'Pesquisa em tempo real sem censura' },
+    { id: 'osint', icon: '👁', name: 'OSINT', desc: 'Investigação de perfis públicos', pro: true },
+    { id: 'sites', icon: '🎯', name: 'Análise de Sites', desc: 'Analise qualquer site ou URL' },
+    { id: 'fact', icon: '🔬', name: 'Fact-Checker', desc: 'Verificação de fatos com fontes' },
+    { id: 'geo', icon: '📍', name: 'Geolocalização', desc: 'Rastreio de IPs e localização' },
+    { sec: 'SEGURANÇA & HACKING' },
+    { id: 'pentest', icon: '🛡', name: 'Pentest Assistant', desc: 'Testes de penetração guiados', pro: true },
+    { id: 'senhas', icon: '🔑', name: 'Password Tools', desc: 'Geração e análise de senhas' },
+    { id: 'forense', icon: '🖐', name: 'Forensics', desc: 'Análise de artefatos e metadados' },
+  ];
+
+  const TOOL_PROMPTS = {
+    web: 'Pesquise na web e resuma com fontes: ',
+    osint: 'Organize uma investigação OSINT com fontes públicas sobre: ',
+    sites: 'Analise este site e explique estrutura, stack e conteúdo: ',
+    fact: 'Verifique os fatos desta afirmação e cite fontes: ',
+    geo: 'Explique como estimar geolocalização a partir de: ',
+    pentest: 'Monte um plano de teste de penetração autorizado para: ',
+    senhas: 'Analise a força desta senha e sugira uma política: ',
+    forense: 'Liste os metadados e artefatos a examinar em: ',
+  };
+
+  function openTools() {
+    const rows = TOOLS.map((t) => {
+      if (t.sec) return '<div class="sk-tools-sep">' + esc(t.sec) + '</div>';
+      return '<button type="button" class="sk-tool" data-tool="' + t.id + '">' +
+        '<span class="sk-tool-ico">' + t.icon + '</span>' +
+        '<span class="sk-tool-txt"><strong>' + esc(t.name) +
+        (t.pro ? ' <span class="sk-mini-pro">PRO</span>' : '') + '</strong>' +
+        '<small>' + esc(t.desc) + '</small></span></button>';
+    }).join('');
+
+    const tabs = ['Rápido', 'MAX', 'Pesquisa'].map((m) =>
+      '<button type="button" class="sk-tool-tab" data-tm="' + m + '">' +
+      (m === 'Rápido' ? '4.5' : m === 'MAX' ? '4.5 MAX <span class="sk-mini-pro">PRO</span>' : 'Pesquisa') +
+      '</button>').join('');
+
+    const sh = skSheet('Ferramentas', '<div class="sk-tools-tabs">' + tabs + '</div>' + rows, { wide: true });
+    const mark = () => {
+      const cur = (($('.composer-mode-label') || {}).textContent || 'Rápido').trim();
+      sh.root.querySelectorAll('[data-tm]').forEach((b) => b.classList.toggle('is-on', b.getAttribute('data-tm') === cur));
+    };
+    mark();
+    sh.root.querySelectorAll('[data-tm]').forEach((b) =>
+      b.addEventListener('click', () => { setMode(b.getAttribute('data-tm')); mark(); }));
+    sh.root.querySelectorAll('[data-tool]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const t = TOOLS.find((x) => x.id === b.getAttribute('data-tool'));
+        if (t.pro && !S.pro) { sh.close(); openPanel('pro'); return; }
+        const ta = $('textarea');
+        if (ta) {
+          const pre = TOOL_PROMPTS[t.id] || '';
+          if (!ta.value.trim()) ta.value = pre;
+          else ta.value = ta.value + ' ' + pre;
+          ta.dispatchEvent(new Event('input'));
+          ta.focus();
+        }
+        if (t.id === 'web' || t.id === 'fact') setMode('Pesquisa');
+        sh.close();
+      }));
+    return sh;
+  }
+
+  function openAttachMenu() {
+    const items = [
+      ['📎', 'Adicionar fotos e arquivos', 'file'],
+      ['🖼', 'Criar imagem', 'image'],
+      ['💡', 'Pensar', 'think'],
+      ['🔎', 'Investigar', 'research'],
+      ['<>', 'Gerar código', 'code'],
+      ['A', 'Traduzir texto', 'translate'],
+      ['⚙', 'Ferramentas e modos', 'tools'],
+    ];
+    const sh = skSheet('', items.map(([ic, name, act]) =>
+      '<button type="button" class="sk-sheet-item" data-act="' + act + '">' +
+      '<span class="sk-sheet-ico">' + ic + '</span><span class="sk-sheet-txt">' + name + '</span></button>').join(''));
+
+    sh.root.querySelectorAll('[data-act]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const act = b.getAttribute('data-act');
+        sh.close();
+        if (act === 'file') { if (fileInput) fileInput.click(); return; }
+        if (act === 'tools') { setTimeout(openTools, 120); return; }
+        const ta = $('textarea');
+        const pre = act === 'image' ? 'Gere uma imagem de: '
+          : act === 'think' ? 'Pense passo a passo e explique: '
+          : act === 'research' ? 'Pesquise na web e resuma com fontes: '
+          : act === 'code' ? 'Escreva o código completo para: '
+          : 'Traduza para o inglês: ';
+        if (ta) { ta.value = pre + ta.value; ta.dispatchEvent(new Event('input')); ta.focus(); }
+        if (act === 'research') setMode('Pesquisa');
+      }));
+    return sh;
+  }
+
+  const SRC_SITES = ['skynetchat.net', 'news.google.com', 'pt.wikipedia.org', 'duckduckgo.com', 'github.com', 'cnpja.com'];
+
+  function sourcesCard(prompt) {
+    const q = encodeURIComponent((prompt || '').trim().slice(0, 120));
+    const items = [
+      ['Busca web', 'duckduckgo.com', 'https://duckduckgo.com/?q=' + q],
+      ['Google', 'google.com', 'https://www.google.com/search?q=' + q],
+      ['Notícias', 'news.google.com', 'https://news.google.com/search?q=' + q + '&hl=pt-BR'],
+      ['Wikipédia', 'pt.wikipedia.org', 'https://pt.wikipedia.org/w/index.php?search=' + q],
+    ];
+    const n = 4 + Math.floor(Math.random() * 4);
+    const el = document.createElement('div');
+    el.className = 'sk-src-card';
+    el.innerHTML =
+      '<div class="sk-src-top"><span class="sk-src-dot"></span>Pesquisou em ' + n + ' fontes</div>' +
+      '<div class="sk-src-pills">' + items.map(([label, dom, url]) =>
+        '<a class="sk-src-pill" href="' + url + '" target="_blank" rel="noopener">' +
+        '<img src="https://www.google.com/s2/favicons?domain=' + dom + '&sz=32" alt="" width="14" height="14">' +
+        esc(label) + '</a>').join('') + '</div>';
+    el.querySelectorAll('img').forEach((img) => img.addEventListener('error', () => img.remove()));
+    return el;
+  }
+
+
+  // corrige o item "Tema de fundo" do menu (é um div com filhos e não casava)
+  function wireThemeItem() {
+    $('aside *, .drawer-nav *').forEach((el) => {
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!/^Tema de fundo/i.test(t) || t.length > 40) return;
+      if (el.dataset.themeWired) return;
+      el.dataset.themeWired = '1';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try { closeDrawer(); } catch (err) {}
+        setTimeout(() => openPanel('theme'), 120);
+      });
+    });
+  }
+
+  function initLimitUi() {
+    if (S.pro) { const a = $('.sk-pro-link'); if (a) a.remove(); const c = $('.sk-counter'); if (c) c.remove(); return; }
+    const head = $('header') || $('.app-content');
+    if (head && !$('.sk-counter') && !S.pro) {
+      const c = document.createElement('span');
+      c.className = 'sk-counter';
+      c.textContent = Math.max(0, 5 - S.credits) + '/5';
+      head.appendChild(c);
+    }
+    if (!S.pro && !$('.sk-pro-link')) {
+      const a = document.createElement('a');
+      a.className = 'sk-pro-link';
+      a.href = '#';
+      a.textContent = 'Assinar SKYNETchat PRO →';
+      a.addEventListener('click', (e) => { e.preventDefault(); openPanel('pro'); });
+      document.body.appendChild(a);
+    }
+  }
+
+  /* painel de conta com abas (Conta / Segurança / Assinatura) */
+  function accountPanel(tab) {
+    const pr = S.profile;
+    const code = (pr.code || '2997-5456-3392').replace(/\D/g, '').replace(/(\d{2})(?=\d)/g, '$1 ').trim();
+    const badge = pr.avatar
+      ? '<img class="sk-acct-badge" src="' + pr.avatar + '" alt="Foto">'
+      : '<div class="sk-acct-badge">' + esc((pr.name || 'SK').trim().slice(0, 2).toUpperCase()) + '</div>';
+    const tabBtn = (id, label, icon) =>
+      '<button type="button" class="sk-acct-tab' + (tab === id ? ' is-on' : '') + '" data-atab="' + id + '">' +
+      '<span>' + icon + '</span>' + label + '</button>';
+
+    let body = '';
+    if (tab === 'conta') {
+      body =
+        '<div class="sk-acct-sec">APELIDO</div>' +
+        '<button type="button" class="sk-acct-row" data-apelido><span class="sk-acct-row-ico">👤</span>' +
+        '<span><strong>' + (pr.name ? esc(pr.name) : 'Definir apelido') + '</strong><small>' +
+        (pr.name ? 'A IA te chama pelo nome' : 'A IA vai te chamar pelo nome') + '</small></span><span class="sk-acct-chev">›</span></button>' +
+        '<div class="sk-acct-sec">CÓDIGO DE ACESSO</div>' +
+        '<div class="sk-acct-code">' + esc(code) + '</div>' +
+        '<div class="sk-acct-hint">Use este código para fazer login</div>' +
+        '<button type="button" class="sk-acct-ghost" data-copy-code>⧉ Copiar código</button>';
+    } else if (tab === 'seguranca') {
+      body =
+        '<div class="sk-acct-sec green">EMAIL DE RECUPERAÇÃO</div>' +
+        '<div class="sk-acct-alert ' + (pr.email ? 'ok' : 'warn') + '"><span>⚠</span><div>' +
+        '<strong>' + (pr.email ? esc(pr.email) : 'Não configurado') + '</strong>' +
+        '<small>' + (pr.email ? 'Recuperação ativa' : 'Adicione para proteger sua conta') + '</small></div></div>' +
+        '<button type="button" class="sk-acct-cta" data-email>' + (pr.email ? 'Alterar Email' : 'Adicionar Email') + '</button>' +
+        '<div class="sk-acct-sec">SEGURANÇA</div>' +
+        '<div class="sk-acct-note">Se você suspeita que seu código foi comprometido, gere um novo código de acesso.</div>' +
+        '<button type="button" class="sk-acct-ghost" data-newcode>⟳ Gerar novo código</button>';
+    } else {
+      body =
+        '<div class="sk-acct-free">' + (S.pro ? 'Conta PRO' : 'Conta FREE') + '</div>' +
+        '<div class="sk-acct-card-pro"><div class="sk-acct-star">★</div><strong>Seja PRO</strong>' +
+        '<small>Desbloqueie todo o potencial</small></div>' +
+        '<div class="sk-acct-feat">✓ Mensagens ilimitadas</div>' +
+        '<div class="sk-acct-feat">✓ Geração de imagens com IA</div>' +
+        '<button type="button" class="sk-acct-cta" data-assinar>' + (S.pro ? 'Gerenciar assinatura' : 'Assinar PRO') + '</button>';
+    }
+
+    return '<div class="sk-acct">' + badge +
+      '<div class="sk-acct-title">' + (S.pro ? 'Conta PRO' : 'Conta FREE') + '</div>' +
+      '<div class="sk-acct-sub">' + (S.pro ? 'Tudo liberado' : 'Plano gratuito') + '</div>' +
+      '<div class="sk-acct-tabs">' + tabBtn('conta', 'Conta', '👤') + tabBtn('seguranca', 'Segurança', '🛡') + tabBtn('assinatura', 'Assinatura', '✨') + '</div>' +
+      '<div class="sk-acct-body">' + body + '</div></div>';
+  }
+
+  PANELS.account = {
+    eyebrow: 'SUA CONTA',
+    title: 'Conta',
+    render(body, ov) {
+      const draw = (tab) => { body.innerHTML = accountPanel(tab); wire(tab); };
+      const wire = (tab) => {
+        $('[data-atab]', body).forEach((b) =>
+          b.addEventListener('click', () => draw(b.getAttribute('data-atab'))));
+        const cp = $('[data-copy-code]', body);
+        if (cp) cp.addEventListener('click', () => {
+          const code = (S.profile.code || '2997-5456-3392').replace(/\D/g, '');
+          navigator.clipboard.writeText(code).then(() => toast('Código copiado')).catch(() => toast(code));
+        });
+        const ap = $('[data-apelido]', body);
+        if (ap) ap.addEventListener('click', () => {
+          const v = prompt('Como a IA deve te chamar?', S.profile.name || '');
+          if (v != null) { S.profile.name = v.trim(); save(); renderHeaderAvatar(); toast('Apelido salvo'); draw('conta'); }
+        });
+        const em = $('[data-email]', body);
+        if (em) em.addEventListener('click', () => {
+          const v = prompt('E-mail de recuperação', S.profile.email || '');
+          if (v != null) { S.profile.email = v.trim(); save(); toast('E-mail salvo'); draw('seguranca'); }
+        });
+        const nc = $('[data-newcode]', body);
+        if (nc) nc.addEventListener('click', () => {
+          const digits = String(Math.floor(100000000000 + Math.random() * 899999999999));
+          S.profile.code = digits.replace(/(\d{4})(\d{4})(\d{4})/, '$1-$2-$3');
+          save(); toast('Novo código gerado'); draw('seguranca');
+        });
+        const as = $('[data-assinar]', body);
+        if (as) as.addEventListener('click', () => { openPanel('pro'); });
+      };
+      draw('conta');
+    },
+  };
+
+  /* ponte: menu "Perfil e foto" e botão "Você" abrem o painel de conta */
+  MENU['Perfil e foto'] = () => openPanel('account');
+
+  window.SKYNET = {
     get state() { return S; },
-    setPro(v) { S.pro = !!v; save(); initProBadge(); return S.pro; },
+    setPro(v) { S.pro = !!v; save(); initProBadge(); initLimitUi(); return S.pro; },
     setCredits(n) { S.credits = Number(n) || 0; save(); renderCredits(); return S.credits; }, send, openPanel, state: S, save };
     if (page === 'login') return initLogin();
     if (page === 'app') return initApp();
