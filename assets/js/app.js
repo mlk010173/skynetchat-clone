@@ -1605,11 +1605,15 @@
   }
 
   function initApp() {
-    initComposer();
-    initParticles();
-    initSupportWidget();
-    initVoice();
-    initProBadge();
+    [
+      ['composer', initComposer],
+      ['particles', initParticles],
+      ['support', initSupportWidget],
+      ['voice', initVoice],
+      ['pro', initProBadge],
+    ].forEach(([name, fn]) => {
+      try { fn(); } catch (err) { console.warn('[SKYNET] init ' + name + ' falhou:', err); }
+    });
     wireDrawer();
     renderLoggedState();
     renderCredits();
@@ -1650,7 +1654,8 @@
       chip.type = 'button';
       chip.className = 'sk-mode-mobile';
       const sync = () => {
-        const cur = (label ? label.textContent.trim() : 'Rápido');
+        const lb = $('.composer-mode-label', modeBtn);
+        const cur = lb ? lb.textContent.trim() : 'Rápido';
         chip.innerHTML = '<b>◆</b> ' + esc(cur);
         chip.setAttribute('aria-label', 'Modo de IA: ' + cur);
       };
