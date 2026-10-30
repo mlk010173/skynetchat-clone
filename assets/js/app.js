@@ -420,7 +420,9 @@
     const body = li.querySelector('[data-ai-body]');
     content.innerHTML = '<span class="sk-thinking"><i></i><i></i><i></i></span>';
 
-    const mode = ($('.composer-mode-label') || {}).textContent?.trim() || 'Rápido';
+    let mode = ($('.composer-mode-label') || {}).textContent?.trim() || 'Rápido';
+    if (mode === 'Rápido' && /^\s*(pesquis|busque|procure|pesquisa)/i.test(prompt)) mode = 'Pesquisa';
+    if (mode === 'Rápido' && /\b(max|profund|detalhad)\b/i.test(prompt)) mode = 'MAX';
     const steps = buildSteps(prompt, mode);
     const trace = traceEl();
     li.insertBefore(trace, body);
