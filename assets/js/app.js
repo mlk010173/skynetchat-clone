@@ -1663,7 +1663,10 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    window.SKYNET = { send, openPanel, state: S, save };
+    window.SKYNET = {
+    get state() { return S; },
+    setPro(v) { S.pro = !!v; save(); initProBadge(); return S.pro; },
+    setCredits(n) { S.credits = Number(n) || 0; save(); renderCredits(); return S.credits; }, send, openPanel, state: S, save };
     if (page === 'login') return initLogin();
     if (page === 'app') return initApp();
     applyThemeOnly();
