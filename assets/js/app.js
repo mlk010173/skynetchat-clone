@@ -471,7 +471,9 @@
     const form = $$('form').find((f) => f.querySelector('textarea'));
     if (!form) return;
     const ta = form.querySelector('textarea');
-    const sendBtn = $('[aria-label="Enviar"]', form) || $('[aria-label="Enviar"]');
+    const sendBtn = form.querySelector('[aria-label="Enviar"], .composer-action, [aria-label="Voz"]');
+    const micBtn = form.querySelector('[aria-label="Gravar áudio"]');
+    const attachBtn = form.querySelector('[aria-label="Anexar arquivo"]');
     const placeholderEl = form.querySelector('.composer-placeholder');
 
     const counter = form.querySelector('.composer-counter') || null;
@@ -504,8 +506,11 @@
     });
     if (sendBtn) sendBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      if (!ta.value.trim()) return toast('Escreva ou dite uma mensagem');
       submit();
     });
+    if (micBtn) micBtn.addEventListener('click', (e) => { e.preventDefault(); toast('Ditado por voz chega em breve'); });
+    if (attachBtn) attachBtn.addEventListener('click', (e) => { e.preventDefault(); toast('Anexos ficam salvos apenas na sua sessão'); });
 
     // typewriter placeholder
     if (placeholderEl) {
@@ -529,10 +534,13 @@
   }
 
   function setComposerBusy(busy) {
-    const sendBtn = $('[aria-label="Enviar"]');
-    if (sendBtn) sendBtn.classList.toggle('sk-stop', busy);
-    const ta = $('form textarea');
-    if (ta) ta.disabled = false;
+    const form = $$('form').find((f) => f.querySelector('textarea'));
+    const sendBtn = form ? form.querySelector('[aria-label="Enviar"], .composer-action, [aria-label="Voz"]') : null;
+    if (sendBtn) {
+      sendBtn.classList.toggle('sk-stop', busy);
+      sendBtn.style.opacity = busy ? '0.75' : '';
+    }
+    document.documentElement.style.setProperty('--composer-busy', busy ? '1' : '0');
   }
 
   /* --------------------------- credits ------------------------------ */
@@ -898,7 +906,7 @@
     'Histórico de conversas': () => openPanel('history'),
     'Conheça o SKYNETchat': () => (location.href = 'sobre.html'),
     Prompts: () => openPanel('prompts'),
-    Suporte: () => openPanel('support'),
+    Suporte: () => (window.__openSupport ? window.__openSupport() : openPanel('support')),
     'Tema de fundo': () => openPanel('theme'),
     'Termos de Serviço': () => (location.href = 'termos.html'),
     'Sair da conta': () => logout(),
@@ -917,6 +925,11 @@
         closeDrawer();
         MENU[hit]();
       });
+    });
+
+    // gatilhos do drawer (button ou div com role)
+    $$('[aria-label="Abrir menu"], [aria-label="Abrir painel lateral"]').forEach((el) => {
+      el.addEventListener('click', (e) => { e.preventDefault(); openDrawer(); });
     });
 
     // header / strip / global buttons
@@ -1063,6 +1076,25 @@
   }
 
 
+  /* --------------- widget de suporte embutido ------------------------ */
+  function initSupportWidget() {
+    const w = $('.support-widget');
+    if (!w) return;
+    w.classList.remove('sk-open');
+    const toggle = (force) => {
+      const isOpen = w.classList.contains('sk-open');
+      const open = force === undefined ? !isOpen : force;
+      w.classList.toggle('sk-open', open);
+      if (open) closeDrawer();
+    };
+    $$('[aria-label="Suporte SKYNETchat"]').forEach((b) =>
+      b.addEventListener('click', (e) => { e.preventDefault(); toggle(); })
+    );
+    const closer = w.querySelector('[aria-label="Fechar suporte"]');
+    if (closer) closer.addEventListener('click', (e) => { e.preventDefault(); toggle(false); });
+    window.__openSupport = () => toggle(true);
+  }
+
   /* --------------- partículas de fundo (substitui particles.js) ------- */
   function initParticles() {
     const host = document.getElementById('particles-js');
@@ -1160,6 +1192,7 @@
   function initApp() {
     initComposer();
     initParticles();
+    initSupportWidget();
     wireDrawer();
     renderLoggedState();
     renderCredits();
