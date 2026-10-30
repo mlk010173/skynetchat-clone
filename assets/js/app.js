@@ -21,6 +21,7 @@
     logged: false,
     pro: true,
     credits: 99,
+    profile: { name: '', email: '', code: '', avatar: null },
     settings: {
       engine: 'demo', // demo | api
       endpoint: 'https://api.openai.com/v1/chat/completions',
@@ -38,6 +39,7 @@
         ...defaults,
         ...raw,
         settings: { ...defaults.settings, ...(raw.settings || {}) },
+        profile: { ...defaults.profile, ...(raw.profile || {}) },
       };
     } catch (e) {
       return structuredClone(defaults);
@@ -224,69 +226,15 @@
 
   function sourcesBlock(prompt) {
     const q = encodeURIComponent(prompt.trim().slice(0, 120));
-    return `**Fontes consultadas (abrir para conferir)**
-
-` +
-      `- [Busca web](${'https://duckduckgo.com/?q='}${q})
-` +
-      `- [Google](${'https://www.google.com/search?q='}${q})
-` +
-      `- [Notícias](${'https://news.google.com/search?q='}${q}&hl=pt-BR'})
-` +
-      `- [Wikipédia](${'https://pt.wikipedia.org/w/index.php?search='}${q})
-
-` +
-      `> A busca acima é executada no seu navegador. Para respostas sintetizadas com fontes ao vivo, ative o modo **API** em *Configurar IA*.`;
-  }
-
-  /* ------------------------ real API streaming ---------------------- */
-  async function apiStream(messages, onDelta, signal) {
-    const cfg = S.settings;
-    const isAnthropic = /anthropic\.com/.test(cfg.endpoint);
-    const body = isAnthropic
-      ? { model: cfg.model, max_tokens: 2048, stream: true, system: cfg.system, messages }
-      : {
-          model: cfg.model,
-          stream: true,
-          temperature: Number(cfg.temperature) || 0.8,
-          messages: [{ role: 'system', content: cfg.system }, ...messages],
-        };
-    const headers = { 'Content-Type': 'application/json' };
-    if (cfg.key) headers[isAnthropic ? 'x-api-key' : 'Authorization'] = isAnthropic ? cfg.key : `Bearer ${cfg.key}`;
-    if (isAnthropic) headers['anthropic-version'] = '2023-06-01';
-
-    const res = await fetch(cfg.endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal });
-    if (!res.ok || !res.body) {
-      const txt = await res.text().catch(() => '');
-      throw new Error(`HTTP ${res.status} ${txt.slice(0, 180)}`);
-    }
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    let buf = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop() || '';
-      for (const line of lines) {
-        const l = line.trim();
-        if (!l) continue;
-        // Vercel AI SDK data stream: 0:"texto"
-        if (/^0:/.test(l)) {
-          try { onDelta(JSON.parse(l.slice(2))); } catch (e) {}
-          continue;
-        }
-        if (!l.startsWith('data:')) continue;
-        const data = l.slice(5).trim();
-        if (data === '[DONE]') continue;
-        try {
-          const j = JSON.parse(data);
-          const t = j.choices?.[0]?.delta?.content ?? j.delta?.text ?? '';
-          if (t) onDelta(t);
-        } catch (e) {}
-      }
-    }
+    const links = [
+      ['Busca web', 'https://duckduckgo.com/?q=' + q],
+      ['Google', 'https://www.google.com/search?q=' + q],
+      ['Notícias', 'https://news.google.com/search?q=' + q + '&hl=pt-BR'],
+      ['Wikipédia', 'https://pt.wikipedia.org/w/index.php?search=' + q],
+    ];
+    return '**Fontes consultadas (abrir para conferir)**\n\n' +
+      links.map(([n, u]) => `- [${n}](${u})`).join('\n') +
+      '\n\n> A busca acima é executada no seu navegador. Para respostas sintetizadas com fontes ao vivo, ative o modo **API** em *Configurar IA*.';
   }
 
   /* --------------------------- chat UI ------------------------------ */
@@ -330,7 +278,16 @@
     return c;
   }
 
-  function bubbleUser(text) {
+  function attachCardsHtml(files) {
+    if (!files || !files.length) return '';
+    return `<div class="sk-msg-files">${files.map((f) => `
+      <div class="sk-msg-file">
+        ${f.dataUrl ? `<img src="${f.dataUrl}" alt="${esc(f.name)}">` : `<span class="sk-attach-ico">${esc((f.name.split('.').pop() || 'arq').slice(0, 4).toUpperCase())}</span>`}
+        <div class="sk-msg-file-meta"><strong>${esc(f.name)}</strong><small>${humanSize(f.size)}</small></div>
+      </div>`).join('')}</div>`;
+  }
+
+  function bubbleUser(text, files) {
     const li = document.createElement('li');
     li.setAttribute('data-user-message', 'true');
     li.className = 'user-message-row flex flex-col items-end gap-1 svelte-1onn9rm';
@@ -338,7 +295,7 @@
       <div class="user-message-width-container flex justify-end w-full">
         <div class="user-message-bubble theme-bg-black theme-text-black max-w-[70%] message-glow-black border theme-border-black break-words whitespace-normal px-4 py-3 text-sm leading-relaxed svelte-1onn9rm">
           <div class="user-message-collapse-root svelte-1onn9rm">
-            <div class="user-message-content svelte-1onn9rm"><div class="!m-0 [&_*]:!m-0"><p>${esc(text).replace(/\n/g, '<br>')}</p></div></div>
+            <div class="user-message-content svelte-1onn9rm"><div class="!m-0 [&_*]:!m-0">${text ? `<p>${esc(text).replace(/\n/g, '<br>')}</p>` : ''}${attachCardsHtml(files)}</div></div>
           </div>
         </div>
       </div>
@@ -350,7 +307,7 @@
         </div>
       </div>`;
     li.querySelector('[data-act="copy"]').addEventListener('click', () => {
-      navigator.clipboard.writeText(text).then(() => toast('Copiado'));
+      navigator.clipboard.writeText(text || (files || []).map((f) => f.name).join(', ')).then(() => toast('Copiado'));
     });
     return li;
   }
@@ -384,13 +341,117 @@
     listEl.scrollTop = listEl.scrollHeight;
   }
 
+
+  /* --------------------------- anexos ------------------------------- */
+  let pendingFiles = [];
+  let fileInput = null;
+
+  function humanSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(0) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  }
+
+  function resizeImage(file, max = 360) {
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        const fr = new FileReader();
+        fr.onload = () => {
+          img.onload = () => {
+            const c = document.createElement('canvas');
+            const sc = Math.min(1, max / Math.max(img.width, img.height));
+            c.width = Math.round(img.width * sc);
+            c.height = Math.round(img.height * sc);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            resolve(c.toDataURL('image/jpeg', 0.82));
+          };
+          img.onerror = () => resolve(null);
+          img.src = fr.result;
+        };
+        fr.onerror = () => resolve(null);
+        fr.readAsDataURL(file);
+      } catch (e) { resolve(null); }
+    });
+  }
+
+  async function readAttachments(fileList) {
+    const files = Array.from(fileList || []).slice(0, 6);
+    for (const f of files) {
+      if (f.size > 12 * 1048576) { toast(`${f.name}: maior que 12 MB`); continue; }
+      let dataUrl = null;
+      if (/^image\//.test(f.type) && f.size <= 4 * 1048576) dataUrl = await resizeImage(f);
+      pendingFiles.push({ name: f.name, size: f.size, type: f.type || 'arquivo', dataUrl });
+    }
+    renderAttachChips();
+    if (files.length) toast(`${files.length} arquivo(s) anexado(s)`);
+  }
+
+  function renderAttachChips() {
+    const host = $('[data-attach-chips]');
+    if (!host) return;
+    host.innerHTML = pendingFiles.length
+      ? pendingFiles.map((f, i) => `
+        <div class="sk-attach-chip" title="${esc(f.name)}">
+          ${f.dataUrl ? `<img src="${f.dataUrl}" alt="">` : `<span class="sk-attach-ico">${esc((f.name.split('.').pop() || 'arq').slice(0, 4).toUpperCase())}</span>`}
+          <span class="sk-attach-name">${esc(f.name)}</span>
+          <span class="sk-attach-size">${humanSize(f.size)}</span>
+          <button type="button" data-rm-file="${i}" aria-label="Remover anexo">✕</button>
+        </div>`).join('')
+      : '';
+    $$('[data-rm-file]', host).forEach((b) =>
+      b.addEventListener('click', () => {
+        pendingFiles.splice(Number(b.getAttribute('data-rm-file')), 1);
+        renderAttachChips();
+      })
+    );
+    document.documentElement.style.setProperty('--attach-h', pendingFiles.length ? '52px' : '0px');
+  }
+
+  function initAttachments(form) {
+    fileInput = form.querySelector('input[type=file]');
+    if (!fileInput) {
+      fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.multiple = true;
+      fileInput.className = 'hidden';
+      form.appendChild(fileInput);
+    }
+    fileInput.setAttribute('multiple', 'multiple');
+
+    const chips = document.createElement('div');
+    chips.setAttribute('data-attach-chips', '1');
+    chips.className = 'sk-attach-row';
+    form.insertBefore(chips, form.firstChild);
+
+    const attachBtn = form.querySelector('[aria-label="Anexar arquivo"]');
+    if (attachBtn) attachBtn.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+    fileInput.addEventListener('change', () => { readAttachments(fileInput.files); fileInput.value = ''; });
+
+    // arrastar e soltar / colar imagem
+    const zone = form.closest('.app-content') || document.body;
+    ['dragover', 'drop'].forEach((ev) =>
+      zone.addEventListener(ev, (e) => {
+        e.preventDefault();
+        if (ev === 'drop' && e.dataTransfer?.files?.length) readAttachments(e.dataTransfer.files);
+      })
+    );
+    document.addEventListener('paste', (e) => {
+      const items = [...(e.clipboardData?.items || [])];
+      const files = items.filter((i) => i.kind === 'file').map((i) => i.getAsFile()).filter(Boolean);
+      if (files.length) { e.preventDefault(); readAttachments(files); }
+    });
+    return chips;
+  }
+
   /* ------------------------- generation ----------------------------- */
   let generating = false;
   let abortCtrl = null;
 
   async function send(text) {
     const prompt = (text || '').trim();
-    if (!prompt || generating) return;
+    const files = pendingFiles.slice();
+    if ((!prompt && !files.length) || generating) return;
     if (!S.logged) {
       toast('Entre para conversar');
       setTimeout(() => (location.href = 'login.html'), 500);
@@ -405,12 +466,15 @@
     ensureList();
     let conv = currentConv();
     if (!conv) conv = newConv();
-    if (conv.title === 'Novo chat') conv.title = prompt.slice(0, 48);
-    conv.messages.push({ role: 'user', content: prompt, ts: Date.now() });
+    if (conv.title === 'Novo chat') conv.title = (prompt || (files[0] && files[0].name) || 'Arquivos').slice(0, 48);
+    conv.messages.push({ role: 'user', content: prompt, files, ts: Date.now() });
     conv.updated = Date.now();
     save();
+    pendingFiles = [];
+    renderAttachChips();
 
-    listEl.appendChild(bubbleUser(prompt));
+    const enginePrompt = prompt + (files.length ? `\n\n[anexos: ${files.map((f) => f.name).join(', ')}]` : '');
+    listEl.appendChild(bubbleUser(prompt, files));
     scrollToEnd();
 
     const li = bubbleAssistant();
@@ -423,7 +487,7 @@
     let mode = ($('.composer-mode-label') || {}).textContent?.trim() || 'Rápido';
     if (mode === 'Rápido' && /^\s*(pesquis|busque|procure|pesquisa)/i.test(prompt)) mode = 'Pesquisa';
     if (mode === 'Rápido' && /\b(max|profund|detalhad)\b/i.test(prompt)) mode = 'MAX';
-    const steps = buildSteps(prompt, mode);
+    const steps = buildSteps(enginePrompt || 'arquivos anexados', mode);
     const trace = traceEl();
     li.insertBefore(trace, body);
     const traceBody = trace.querySelector('[data-trace-body]');
@@ -466,11 +530,11 @@
       if (S.settings.engine === 'api' && S.settings.endpoint) {
         const msgs = conv.messages
           .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((m) => ({ role: m.role, content: m.content }));
+          .map((m) => ({ role: m.role, content: m.content + (m.files && m.files.length ? `\n[anexos: ${m.files.map((f) => f.name).join(', ')}]` : '') }));
         await apiStream(msgs, onDelta, abortCtrl.signal);
         if (!acc) throw new Error('Resposta vazia');
       } else {
-        const full = demoReply(prompt);
+        const full = demoReply(enginePrompt);
         const chunks = full.match(/\s*\S+|\s+/g) || [full];
         for (const ch of chunks) {
           if (!generating) break;
@@ -483,7 +547,7 @@
     }
 
     if (raf) cancelAnimationFrame(raf);
-    if (mode === 'Pesquisa') acc += `\n\n---\n\n${sourcesBlock(prompt)}`;
+    if (mode === 'Pesquisa') acc += `\n\n---\n\n${sourcesBlock(enginePrompt)}`;
     traceMeta.textContent = `${traceBody.children.length} passos · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
     trace.classList.add('open');
     trace.querySelector('.sk-trace-arrow').textContent = '▾';
@@ -556,6 +620,7 @@
     const form = $$('form').find((f) => f.querySelector('textarea'));
     if (!form) return;
     const ta = form.querySelector('textarea');
+    initAttachments(form);
     const sendBtn = form.querySelector('[aria-label="Enviar"], .composer-action, [aria-label="Voz"]');
     const micBtn = form.querySelector('[aria-label="Gravar áudio"]');
     const attachBtn = form.querySelector('[aria-label="Anexar arquivo"]');
@@ -580,7 +645,7 @@
     });
     const submit = () => {
       const v = ta.value;
-      if (!v.trim()) return;
+      if (!v.trim() && !pendingFiles.length) return;
       ta.value = '';
       grow();
       send(v);
@@ -591,11 +656,11 @@
     });
     if (sendBtn) sendBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      if (!ta.value.trim()) return toast('Escreva ou dite uma mensagem');
+      if (!ta.value.trim() && !pendingFiles.length) return toast('Escreva, dite ou anexe algo');
       submit();
     });
     if (micBtn) micBtn.addEventListener('click', (e) => { e.preventDefault(); toast('Ditado por voz chega em breve'); });
-    if (attachBtn) attachBtn.addEventListener('click', (e) => { e.preventDefault(); toast('Anexos ficam salvos apenas na sua sessão'); });
+
 
     // typewriter placeholder
     if (placeholderEl) {
@@ -944,6 +1009,70 @@
     },
   };
 
+
+  /* ---- painel: perfil (foto / conta) ---- */
+  PANELS.profile = {
+    eyebrow: 'SUA CONTA',
+    title: 'Perfil',
+    render(body) {
+      const pr = S.profile;
+      const initials = (pr.name || 'SK').trim().slice(0, 2).toUpperCase();
+      body.innerHTML = `
+        <div class="sk-profile-top">
+          ${pr.avatar ? `<img class="sk-avatar" src="${pr.avatar}" alt="Foto de perfil">` : `<div class="sk-avatar">${esc(initials)}</div>`}
+          <div>
+            <div style="font-size:15px;color:#fff;font-weight:600">${esc(pr.name || 'Visitante')}</div>
+            <div class="sk-hint">${S.pro ? 'Plano PRO · tudo liberado' : 'Plano Free · 5 mensagens'}</div>
+            <div class="sk-quick" style="margin-top:8px">
+              <button type="button" data-pick-photo>${pr.avatar ? 'Trocar foto' : 'Enviar foto'}</button>
+              ${pr.avatar ? '<button type="button" data-rm-photo>Remover</button>' : ''}
+            </div>
+          </div>
+        </div>
+        <input type="file" accept="image/*" data-photo-input style="display:none">
+        <div class="sk-field"><label>Nome</label><input data-p="name" value="${esc(pr.name)}" placeholder="Como quer ser chamado"></div>
+        <div class="sk-field"><label>E-mail</label><input data-p="email" type="email" value="${esc(pr.email)}" placeholder="voce@email.com"></div>
+        <div class="sk-field"><label>Código de acesso</label><input data-p="code" value="${esc(pr.code)}" placeholder="0000-0000-0000"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="sk-btn" data-save-profile>Salvar perfil</button>
+          <button class="sk-btn ghost" data-account>Configurar IA</button>
+          <button class="sk-btn ghost" data-logout>Sair da conta</button>
+        </div>
+        <p class="sk-hint" style="margin-top:12px">A foto fica salva só neste navegador (localStorage), redimensionada para 300px.</p>`;
+
+      const fileEl = $('[data-photo-input]', body);
+      const pick = $('[data-pick-photo]', body);
+      if (pick) pick.addEventListener('click', () => fileEl.click());
+      fileEl.addEventListener('change', async () => {
+        const f = fileEl.files && fileEl.files[0];
+        if (!f) return;
+        if (!/^image\//.test(f.type)) return toast('Escolha uma imagem');
+        const data = await resizeImage(f, 300);
+        if (!data) return toast('Não consegui ler a imagem');
+        S.profile.avatar = data;
+        save();
+        renderHeaderAvatar();
+        openPanel('profile');
+        toast('Foto atualizada');
+      });
+      const rm = $('[data-rm-photo]', body);
+      if (rm) rm.addEventListener('click', () => {
+        S.profile.avatar = null; save(); renderHeaderAvatar(); openPanel('profile'); toast('Foto removida');
+      });
+      $('[data-save-profile]', body).addEventListener('click', () => {
+        S.profile.name = $('[data-p="name"]', body).value.trim();
+        S.profile.email = $('[data-p="email"]', body).value.trim();
+        S.profile.code = $('[data-p="code"]', body).value.trim();
+        save();
+        renderHeaderAvatar();
+        toast('Perfil salvo');
+        openPanel('profile');
+      });
+      $('[data-account]', body).addEventListener('click', () => openPanel('settings'));
+      $('[data-logout]', body).addEventListener('click', () => logout());
+    },
+  };
+
   /* ---- painel: PRO ---- */
   PANELS.pro = {
     eyebrow: 'DISPONÍVEL AGORA',
@@ -1010,6 +1139,68 @@
     document.documentElement.style.background = bg;
     toast('Tema ' + id.toUpperCase());
   }
+
+
+  /* ---- painéis de conta (login / criar / recuperar) ---- */
+  PANELS.create = {
+    eyebrow: 'NOVA CONTA',
+    title: 'Criar conta',
+    render(body) {
+      body.innerHTML = `
+        <p class="sk-hint">O acesso da SKYNETchat é por código de 12 dígitos. Criamos um código novo para você agora.</p>
+        <div class="sk-field"><label>Nome</label><input data-c="name" placeholder="Seu nome"></div>
+        <div class="sk-field"><label>E-mail</label><input data-c="email" type="email" placeholder="voce@email.com"></div>
+        <button class="sk-btn" data-create>Gerar código e entrar</button>`;
+      $('[data-create]', body).addEventListener('click', () => {
+        const name = $('[data-c="name"]', body).value.trim();
+        const email = $('[data-c="email"]', body).value.trim();
+        if (name.length < 2) return toast('Digite seu nome');
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('E-mail inválido');
+        const digits = String(Math.floor(100000000000 + Math.random() * 899999999999));
+        S.profile = { ...S.profile, name, email, code: digits.replace(/(\d{4})(\d{4})(\d{4})/, '$1-$2-$3') };
+        S.logged = true;
+        S.credits = 5;
+        save();
+        toast('Conta criada! Código: ' + S.profile.code);
+        setTimeout(() => (location.href = 'index.html'), 900);
+      });
+    },
+  };
+
+  PANELS.recover = {
+    eyebrow: 'RECUPERAR',
+    title: 'Recuperar acesso',
+    render(body) {
+      body.innerHTML = `
+        <p class="sk-hint">Informe o e-mail da conta. Enviamos um código de ativação de 12 dígitos.</p>
+        <div class="sk-field"><label>E-mail</label><input data-r="email" type="email" placeholder="voce@email.com"></div>
+        <button class="sk-btn" data-send>Enviar código</button>
+        <div data-r-out style="margin-top:14px"></div>`;
+      $('[data-send]', body).addEventListener('click', () => {
+        const email = $('[data-r="email"]', body).value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('E-mail inválido');
+        const digits = String(Math.floor(100000000000 + Math.random() * 899999999999));
+        const code = digits.replace(/(\d{4})(\d{4})(\d{4})/, '$1-$2-$3');
+        $('[data-r-out]', body).innerHTML = `
+          <div class="sk-item" style="flex-direction:column;align-items:flex-start;gap:4px">
+            <small>Código enviado para ${esc(email)}</small>
+            <strong style="font-size:16px;letter-spacing:.12em;color:#fff">${code}</strong>
+            <small>Ambiente de demonstração: o código aparece aqui, sem envio real de e-mail.</small>
+          </div>`;
+        const btn = document.createElement('button');
+        btn.className = 'sk-btn';
+        btn.style.marginTop = '12px';
+        btn.textContent = 'Entrar com este código';
+        btn.addEventListener('click', () => {
+          S.profile = { ...S.profile, email, code };
+          S.logged = true;
+          save();
+          location.href = 'index.html';
+        });
+        $('[data-r-out]', body).appendChild(btn);
+      });
+    },
+  };
 
   /* ---------------------------- drawer ------------------------------ */
   const MENU = {
@@ -1129,7 +1320,7 @@
     ensureList();
     listEl.innerHTML = '';
     c.messages.forEach((m) => {
-      if (m.role === 'user') listEl.appendChild(bubbleUser(m.content));
+      if (m.role === 'user') listEl.appendChild(bubbleUser(m.content, m.files));
       else {
         const li = bubbleAssistant();
         if (m.trace && m.trace.length) {
@@ -1193,6 +1384,7 @@
       if (digits.length !== 12) return toast('Digite os 12 dígitos do código');
       S.logged = true;
       S.credits = 5;
+      S.profile = { ...S.profile, code: digits.replace(/(\d{4})(\d{4})(\d{4})/, '$1-$2-$3') };
       save();
       const btn = submit;
       if (btn) { btn.disabled = true; btn.textContent = 'ENTRANDO...'; }
@@ -1200,6 +1392,20 @@
     };
     if (form) form.addEventListener('submit', doLogin);
     if (submit) submit.addEventListener('click', doLogin);
+
+    // "CRIAR CONTA" e "RECUPERAR ACESSO"
+    const clickable = $$('a, button, span, p, div');
+    const byText = (re) => clickable.find((el) => el.children.length === 0 && re.test((el.textContent || '').trim()));
+    const createEl = byText(/^criar conta$/i);
+    const recoverEl = byText(/^recuperar acesso$/i);
+    if (createEl) {
+      createEl.style.cursor = 'pointer';
+      createEl.addEventListener('click', (e) => { e.preventDefault(); openPanel('create'); });
+    }
+    if (recoverEl) {
+      recoverEl.style.cursor = 'pointer';
+      recoverEl.addEventListener('click', (e) => { e.preventDefault(); openPanel('recover'); });
+    }
   }
 
 
@@ -1342,7 +1548,18 @@
   }
 
   /* --------------------------- boot -------------------------------- */
+  function renderHeaderAvatar() {
+    const btn = $$('button').find((b) => /Sua conta|Fazer login/i.test(b.getAttribute('aria-label') || ''));
+    if (!btn) return;
+    if (S.profile.avatar) {
+      btn.innerHTML = `<img class="sk-avatar-sm" src="${S.profile.avatar}" alt="Conta">`;
+    } else if (S.profile.name) {
+      btn.innerHTML = esc(S.profile.name.split(' ')[0]);
+    }
+  }
+
   function renderLoggedState() {
+    renderHeaderAvatar();
     if (!S.logged) return;
     $$('button').forEach((b) => {
       const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
@@ -1351,7 +1568,7 @@
         b.setAttribute('aria-label', 'Sua conta');
         b.addEventListener('click', (e) => {
           e.preventDefault();
-          openPanel('settings');
+          openPanel('profile');
         });
       }
     });
@@ -1367,10 +1584,14 @@
           </button>
           <button class="flex items-center gap-3 w-full px-2.5 py-2 rounded-xl text-left" style="background:transparent;color:#eee">
             <span style="font-size:16px">🕘</span><span class="text-[13px]">Histórico</span>
+          </button>
+          <button class="flex items-center gap-3 w-full px-2.5 py-2 rounded-xl text-left" style="background:transparent;color:#eee">
+            <span style="font-size:16px">👤</span><span class="text-[13px]">Perfil e foto</span>
           </button>`;
         nav.appendChild(extra);
         extra.children[0].addEventListener('click', () => { closeDrawer(); openPanel('settings'); });
         extra.children[1].addEventListener('click', () => { closeDrawer(); openPanel('history'); });
+        extra.children[2].addEventListener('click', () => { closeDrawer(); openPanel('profile'); });
       }
     }
   }
