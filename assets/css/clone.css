@@ -249,3 +249,43 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
   padding: 8px 11px; color: #eee; font-size: 12.5px; font-family: inherit;
 }
 .sk-search-row input:focus { outline: none; border-color: var(--sk-accent-border); }
+
+/* ---------- anexos ---------- */
+.sk-attach-row { display: flex; gap: 6px; overflow-x: auto; padding: 6px 10px 0; flex-wrap: nowrap; }
+.sk-attach-row:empty { display: none; }
+.sk-attach-chip {
+  display: flex; align-items: center; gap: 6px; flex: none;
+  background: #141414; border: 1px solid var(--sk-line); border-radius: 10px;
+  padding: 4px 8px; font-size: 11.5px; color: #dcdcdc; max-width: 220px;
+}
+.sk-attach-chip img { width: 26px; height: 26px; object-fit: cover; border-radius: 6px; }
+.sk-attach-ico {
+  width: 26px; height: 26px; flex: none; display: flex; align-items: center; justify-content: center;
+  background: var(--sk-accent-soft); color: var(--sk-accent); border-radius: 6px;
+  font-size: 9px; font-weight: 700; letter-spacing: .04em;
+}
+.sk-attach-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sk-attach-size { color: #6f6f6f; font-size: 10.5px; flex: none; }
+.sk-attach-chip button { background: none; border: 0; color: #8b8b8b; cursor: pointer; font-size: 11px; padding: 0 2px; }
+.sk-attach-chip button:hover { color: #fff; }
+
+.sk-msg-files { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.sk-msg-file {
+  display: flex; align-items: center; gap: 8px; max-width: 340px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09);
+  border-radius: 10px; padding: 6px 8px;
+}
+.sk-msg-file img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; flex: none; }
+.sk-msg-file-meta { min-width: 0; }
+.sk-msg-file-meta strong { display: block; font-size: 12px; color: #eee; word-break: break-all; font-weight: 500; }
+.sk-msg-file-meta small { color: #8b8b8b; font-size: 10.5px; }
+
+/* ---------- perfil / avatar ---------- */
+.sk-profile-top { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.sk-avatar {
+  width: 64px; height: 64px; border-radius: 50%; flex: none;
+  border: 1px solid var(--sk-accent-border); background: #141414;
+  display: flex; align-items: center; justify-content: center;
+  color: #8b8b8b; font-size: 22px; overflow: hidden; object-fit: cover;
+}
+.sk-avatar-sm { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 4px; }
