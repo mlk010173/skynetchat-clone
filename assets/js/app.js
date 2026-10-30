@@ -1644,6 +1644,19 @@
         toast(next === 'MAX' ? '4.5 MAX desbloqueado' : 'Modo ' + next);
       });
       modeBtn.dataset.mode = 'Rápido';
+
+      // chip de modo no mobile
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'sk-mode-mobile';
+      const sync = () => {
+        const cur = (label ? label.textContent.trim() : 'Rápido');
+        chip.innerHTML = '<b>◆</b> ' + esc(cur);
+        chip.setAttribute('aria-label', 'Modo de IA: ' + cur);
+      };
+      chip.addEventListener('click', (e) => { e.preventDefault(); modeBtn.click(); sync(); });
+      sync();
+      document.body.appendChild(chip);
     }
   }
 
