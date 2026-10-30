@@ -1852,7 +1852,7 @@
 
   // corrige o item "Tema de fundo" do menu (é um div com filhos e não casava)
   function wireThemeItem() {
-    $('aside *, .drawer-nav *').forEach((el) => {
+    $$('aside *, .drawer-nav *').forEach((el) => {
       const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
       if (!/^Tema de fundo/i.test(t) || t.length > 40) return;
       if (el.dataset.themeWired) return;
