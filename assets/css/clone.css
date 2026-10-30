@@ -206,3 +206,6 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
   .sk-panel { max-height: 88vh; border-radius: 16px; }
   .sk-panel-body { padding: 14px; }
 }
+
+/* widget de suporte: fechado por padrão */
+.support-widget:not(.sk-open) { display: none !important; }
