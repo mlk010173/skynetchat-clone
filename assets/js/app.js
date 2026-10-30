@@ -425,7 +425,7 @@
     form.insertBefore(chips, form.firstChild);
 
     const attachBtn = form.querySelector('[aria-label="Anexar arquivo"]');
-    if (attachBtn) attachBtn.addEventListener('click', (e) => { e.preventDefault(); openAttachMenu(); });
+    if (attachBtn) attachBtn.addEventListener('click', (e) => { e.preventDefault(); if (window.__skInit) window.__skInit.attach(); });
     fileInput.addEventListener('change', () => { readAttachments(fileInput.files); fileInput.value = ''; });
 
     // arrastar e soltar / colar imagem
@@ -563,7 +563,7 @@
     if (mode === 'Pesquisa') {
       try {
         const last = listEl.lastElementChild;
-        const card = sourcesCard(enginePrompt);
+        const card = window.__skInit ? window.__skInit.src(enginePrompt) : document.createElement('div');
         if (last && last.querySelector('[data-ai-content]')) last.appendChild(card); else listEl.appendChild(card);
         const am = conv.messages[conv.messages.length - 1];
         if (am && am.role === 'assistant') am.sources = true;
@@ -1627,8 +1627,8 @@
       ['support', initSupportWidget],
       ['voice', initVoice],
       ['pro', initProBadge],
-      ['limit', initLimitUi],
-      ['theme-item', wireThemeItem],
+      ['limit', () => window.__skInit && window.__skInit.limit()],
+      ['theme-item', () => window.__skInit && window.__skInit.theme()],
     ].forEach(([name, fn]) => {
       try { fn(); } catch (err) { console.warn('[SKYNET] init ' + name + ' falhou:', err); }
     });
@@ -1933,6 +1933,16 @@
       '<div class="sk-acct-tabs">' + tabBtn('conta', 'Conta', '👤') + tabBtn('seguranca', 'Segurança', '🛡') + tabBtn('assinatura', 'Assinatura', '✨') + '</div>' +
       '<div class="sk-acct-body">' + body + '</div></div>';
   }
+
+
+  window.__skInit = {
+    limit: initLimitUi,
+    theme: wireThemeItem,
+    tools: openTools,
+    attach: openAttachMenu,
+    mode: setMode,
+    src: sourcesCard,
+  };
 
   PANELS.account = {
     eyebrow: 'SUA CONTA',
