@@ -1400,10 +1400,18 @@
     const recoverEl = byText(/^recuperar acesso$/i);
     if (createEl) {
       createEl.style.cursor = 'pointer';
+      createEl.style.display = 'inline-flex';
+      createEl.style.alignItems = 'center';
+      createEl.style.minHeight = '32px';
+      createEl.style.padding = '2px 4px';
       createEl.addEventListener('click', (e) => { e.preventDefault(); openPanel('create'); });
     }
     if (recoverEl) {
       recoverEl.style.cursor = 'pointer';
+      recoverEl.style.display = 'inline-flex';
+      recoverEl.style.alignItems = 'center';
+      recoverEl.style.minHeight = '32px';
+      recoverEl.style.padding = '2px 4px';
       recoverEl.addEventListener('click', (e) => { e.preventDefault(); openPanel('recover'); });
     }
   }
