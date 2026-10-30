@@ -1950,7 +1950,7 @@
     render(body, ov) {
       const draw = (tab) => { body.innerHTML = accountPanel(tab); wire(tab); };
       const wire = (tab) => {
-        $('[data-atab]', body).forEach((b) =>
+        $$('[data-atab]', body).forEach((b) =>
           b.addEventListener('click', () => draw(b.getAttribute('data-atab'))));
         const cp = $('[data-copy-code]', body);
         if (cp) cp.addEventListener('click', () => {
