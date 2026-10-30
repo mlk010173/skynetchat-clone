@@ -364,3 +364,19 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
   form div:has(> .composer-mode) .composer-mode-label { font-size: 10.5px; }
   form textarea { min-width: 0; }
 }
+
+/* chip de modo só no mobile (o pill original fica escondido para dar espaço ao texto) */
+.sk-mode-mobile { display: none; }
+@media (max-width: 900px) {
+  form div:has(> .composer-mode) { display: none !important; }
+  .sk-mode-mobile {
+    display: inline-flex; align-items: center; gap: 5px;
+    position: fixed; left: 12px; bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+    z-index: 40; height: 26px; padding: 0 10px;
+    border-radius: 999px; border: 1px solid var(--sk-accent-border);
+    background: rgba(18,18,18,.92); color: #dcdcdc;
+    font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase;
+    backdrop-filter: blur(6px); cursor: pointer;
+  }
+  .sk-mode-mobile b { color: var(--sk-accent); font-weight: 700; }
+}
