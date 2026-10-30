@@ -346,3 +346,21 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
   .composer-mode { font-size: 10px; padding: 0 7px; }
   .sk-msg-file { max-width: 100%; }
 }
+
+@media (max-width: 900px) {
+  /* composer em duas linhas: seletor de modo acima, texto embaixo */
+  form:has(textarea) { flex-wrap: wrap; align-items: flex-end; }
+  form div:has(> .composer-mode) {
+    order: -1;
+    flex: 0 0 100%;
+    justify-content: flex-start;
+    padding: 2px 0 0 2px;
+  }
+  form div:has(> .composer-mode) .composer-mode {
+    height: 26px;
+    font-size: 10.5px;
+    padding: 0 8px;
+  }
+  form div:has(> .composer-mode) .composer-mode-label { font-size: 10.5px; }
+  form textarea { min-width: 0; }
+}
