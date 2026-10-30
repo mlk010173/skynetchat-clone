@@ -1,39 +1,80 @@
-# SKYNETchat — clone estático
+# SKYNETchat — clone avançado (GitHub Pages)
 
-Clone funcional da interface da SKYNETchat (tema preto/vermelho), com chat de IA e
-**streaming em tempo real**, rodando 100% em site estático (GitHub Pages).
+Clone funcional da interface da **SKYNETchat** (tema preto/vermelho) com chat de IA,
+**streaming em tempo real**, **log de pensamento** em texto, **anexos reais** e painel
+de perfil com foto. Roda 100% em site estático, sem backend.
 
-## O que está incluído
+**Demo:** https://mlk010173.github.io/skynetchat-clone/
 
-- **App/chat** (`index.html`): shell completo, sidebar/drawer, hero com sugestões,
-  composer com placeholder animado, bolhas de mensagem, ações (copiar, ouvir, reescrever,
-  feedback), partículas de fundo e histórico local de conversas.
-- **Login** (`login.html`): tela de autenticação com código de ativação de 12 dígitos.
-- **Conheça** (`sobre.html`), **Termos** (`termos.html`), **Monetize** (`monetizar.html`),
-  **Indique e Ganhe** (`indicar.html`).
-- **Painéis no menu**: Atualizações, Imagens, Projetos, Histórico, Prompts, Suporte,
-  Conversas em grupo, Tema de fundo e **Configurar IA**.
+## Mapa do repositório
 
-## Streaming
+```
+index.html                   App + chat (drawer, hero, composer, painéis)
+login.html                   Acesso por código de 12 dígitos + criar conta / recuperar
+sobre.html                   "Conheça o SKYNETchat"
+termos.html                  Termos de Uso e Política de Privacidade
+monetizar.html               Monetize com o SKYNETchat
+indicar.html                 Indique e Ganhe
+assets/css/skynet.css        CSS original do app
+assets/css/skynet-extra.css  CSS de componentes secundários
+assets/css/KaTeX_*.woff2     Fontes matemáticas do bundle original (59 arquivos)
+assets/css/clone.css         Camada do clone: pensamento, painéis, anexos, perfil
+assets/js/app.js             Motor: chat, streaming, anexos, perfil, painéis, voz
+assets/img/*                 Logo, favicons, ícones PWA
+```
 
-Dois motores, alternáveis em *Configurar IA* (menu lateral ou título "SKYNETchat 4.5"):
+## Lógica do motor (`assets/js/app.js`)
 
-1. **Demo** (padrão) — respostas geradas no navegador, token a token, com markdown,
-   blocos de código e caret piscando. Não precisa de chave.
-2. **API** — streaming real via `fetch` + `ReadableStream`. Compatível com:
-   - OpenAI Chat Completions (`/v1/chat/completions`, SSE `data: {...}`)
-   - Vercel AI SDK Data Stream (`0:"texto"`)
-   - Anthropic (`/v1/messages`, SSE)
-   - Groq, OpenRouter, Together e qualquer proxy compatível com OpenAI.
+| Bloco | Responsabilidade |
+|---|---|
+| `store` / `load` / `save` | Estado em `localStorage` (`skynetchat.clone.v1`): conversas, tema, PRO, perfil, motor |
+| `mdBlocks` / `inline` | Renderizador markdown (títulos, listas, código, links, citações) |
+| `demoReply` | Motor local por intenção (saudação, código, imagem, pesquisa, genérica) |
+| `apiStream` | Streaming real via `fetch` + `ReadableStream`: SSE OpenAI, Vercel AI SDK Data Stream (`0:"..."`), Anthropic |
+| `buildSteps` / `traceEl` / `traceLine` | Log de pensamento: etapas cronometradas, persistidas na mensagem |
+| `sourcesBlock` | Modo Pesquisa: fontes com links reais de busca |
+| `send` | Orquestra pensamento → streaming → ações → persistência |
+| `readAttachments` / `resizeImage` | Anexos: leitura, miniatura de imagem, limite de 6 × 12 MB |
+| `initVoice` / `speak` | Ditado por voz (Web Speech) e leitura da resposta (SpeechSynthesis) |
+| `initParticles` | Partículas de fundo em canvas |
+| Painéis | Atualizações, Imagens, Projetos, Histórico (busca/exportar/apagar), Prompts, Suporte, Grupos, Tema, Perfil, Configurar IA, Criar conta, Recuperar |
 
-A chave é salva apenas no `localStorage` do navegador. Em produção, use um proxy
-para não expor a chave (qualquer endpoint compatível funciona).
+## Anexos, foto e conta
+
+- **Anexos**: botão `+`, arrastar-e-soltar e colar (Ctrl+V). Imagens viram miniatura
+  (360px) e aparecem como card na mensagem; outros arquivos mostram tipo e tamanho.
+- **Perfil**: menu → *Perfil e foto*. Foto redimensionada para 300px aparece no cabeçalho.
+- **Criar conta / recuperar acesso**: geram código de 12 dígitos; a recuperação mostra o
+  código no próprio painel (ambiente de demonstração, sem envio real de e-mail).
+
+## Modos
+
+Rápido · MAX (4.5, raciocínio profundo) · Pesquisa (detecta "pesquise..." e adiciona fontes).
+
+## PRO desbloqueado
+
+`pro: true` por padrão: mensagens ilimitadas, todos os painéis, selo **PRO** no cabeçalho.
+Em *Configurar IA → Conta* dá para voltar ao Free (5 mensagens) e testar o upgrade.
+
+## Auditoria automatizada
+
+Verificado em contexto anônimo (sem cookies/sessão) via DevTools, no app e no login:
+drawer, 7 painéis, composer, anexos (texto + imagem), envio com streaming, log de
+pensamento, persistência, tema, perfil e foto, login por código, criar conta e
+recuperar acesso. Resultado final: **0 erros de console**, depois de corrigir o
+`/logov2.jpeg` quebrado e baixar as 59 fontes KaTeX que faltavam.
 
 ## Rodar localmente
 
 ```bash
 python3 -m http.server 8080
-# abra http://localhost:8080
+# http://localhost:8080
 ```
 
-Entre com qualquer código de 12 dígitos para liberar o chat.
+Entre com qualquer código de 12 dígitos.
+
+## Notas
+
+- Front-end puro: sem backend, banco ou chaves de terceiros embutidas.
+- Chaves de servidor da versão original nunca chegam ao navegador, então não existem
+  "segredos" recuperáveis no front-end — e este repositório não contém nenhum.
