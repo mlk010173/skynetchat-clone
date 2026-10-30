@@ -78,3 +78,20 @@ Entre com qualquer código de 12 dígitos.
 - Front-end puro: sem backend, banco ou chaves de terceiros embutidas.
 - Chaves de servidor da versão original nunca chegam ao navegador, então não existem
   "segredos" recuperáveis no front-end — e este repositório não contém nenhum.
+
+## Fidelidade móvel (reconstruída a partir dos prints do site)
+
+- **Sheet do "+"**: Adicionar fotos e arquivos · Criar imagem · Pensar · Investigar · Gerar código · Traduzir texto · Ferramentas e modos.
+- **Modal Ferramentas**: abas 4.5 / 4.5 MAX (PRO) / Pesquisa e as seções *Pesquisa & Inteligência* (Busca na Web, OSINT PRO, Análise de Sites, Fact-Checker, Geolocalização) e *Segurança & Hacking* (Pentest Assistant PRO, Password Tools, Forensics). Cada item injeta o template no composer; itens PRO abrem o painel de assinatura.
+- **Card de fontes no chat**: "Pesquisou em N fontes" com pílulas de domínio e favicon (modo Pesquisa).
+- **Conta com abas**: Conta (apelido, código `29 97 54 56 33 92`, copiar), Segurança (e-mail de recuperação, gerar novo código) e Assinatura (card "Seja PRO").
+- **Limite FREE**: contador `n/5` no cabeçalho e link "Assinar SKYNETchat PRO →" acima do composer.
+- **Mobile**: chip de modo acima do composer, seletor de modo fixo, alvos de toque ≥ 32px, composer com safe-area do iPhone.
+- **Cache-bust** automático nos assets (`app.js?v=<hash>`), para o Pages não servir JS antigo.
+
+## O que este repositório NÃO tem
+
+Nenhum segredo, chave, token, credencial ou código de servidor. O front-end estático não
+contém chaves da versão original (elas ficam no servidor, inacessíveis por design) e este
+clone não faz nenhuma tentativa de acesso ao backend, painel ou infraestrutura do site de
+origem. Para ligar uma IA real, use *Configurar IA* e informe a sua própria chave.
