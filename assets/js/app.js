@@ -483,8 +483,8 @@
     if (raf) cancelAnimationFrame(raf);
     if (mode === 'Pesquisa') acc += `\n\n---\n\n${sourcesBlock(prompt)}`;
     traceMeta.textContent = `${traceBody.children.length} passos · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
-    trace.classList.remove('open');
-    trace.querySelector('.sk-trace-arrow').textContent = '▸';
+    trace.classList.add('open');
+    trace.querySelector('.sk-trace-arrow').textContent = '▾';
     content.innerHTML = mdBlocks(acc || '_(sem resposta)_');
     actions.style.opacity = '1';
     actions.style.pointerEvents = 'auto';
