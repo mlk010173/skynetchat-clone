@@ -1223,18 +1223,25 @@
   };
 
   function wireDrawer() {
-    const items = $$('aside .drawer-nav button, aside .drawer-nav a');
-    items.forEach((el) => {
-      const label = (el.textContent || '').replace(/\s+/g, ' ').trim();
-      const hit = Object.keys(MENU).find((k) => label.startsWith(k));
-      if (!hit) return;
-      el.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        closeDrawer();
-        MENU[hit]();
+    // delegação: qualquer elemento do menu (button, a, div) casa pelo texto
+    const nav = $('aside .drawer-nav') || $('aside');
+    if (nav) {
+      nav.addEventListener('click', (e) => {
+        let el = e.target;
+        while (el && el !== nav) {
+          const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+          const hit = t.length < 90 ? Object.keys(MENU).find((k) => t.startsWith(k)) : null;
+          if (hit) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeDrawer();
+            try { MENU[hit](); } catch (err) { console.warn('[SKYNET] menu', hit, err); }
+            return;
+          }
+          el = el.parentElement;
+        }
       });
-    });
+    }
 
     // gatilhos do drawer (button ou div com role)
     $$('[aria-label="Abrir menu"], [aria-label="Abrir painel lateral"]').forEach((el) => {
