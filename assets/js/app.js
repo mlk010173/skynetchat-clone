@@ -463,7 +463,7 @@
       save();
       toast('Modo convidado: ' + (3 - S.guestUsed) + ' restante(s)');
     }
-    if (!S.pro && S.credits <= 0) {
+    if (S.logged && !S.pro && S.credits <= 0) {
       openPanel('pro');
       return;
     }
@@ -724,7 +724,8 @@
   /* --------------------------- credits ------------------------------ */
   function renderCredits() {
     const el = $$('span, div').find((e) => /^\s*\d+\/\d+\s*$/.test(e.textContent || '') && e.children.length === 0);
-    if (el) el.textContent = `${S.credits}/5`;
+    const safe = Math.max(0, Math.min(5, Number.isFinite(S.credits) ? S.credits : 5));
+    if (el) el.textContent = `${safe}/5`;
   }
 
   /* --------------------------- panels ------------------------------- */
@@ -1663,6 +1664,8 @@
   }
 
   function initApp() {
+    // sanitiza créditos salvos
+    if (!Number.isFinite(S.credits) || S.credits < 0 || S.credits > 5) { S.credits = 5; save(); }
     [
       ['composer', initComposer],
       ['particles', initParticles],
@@ -1929,7 +1932,7 @@
     if (head && !$('.sk-counter') && !S.pro) {
       const c = document.createElement('span');
       c.className = 'sk-counter';
-      c.textContent = Math.max(0, 5 - S.credits) + '/5';
+      c.textContent = Math.min(5, Math.max(0, 5 - Math.max(0, Math.min(5, S.credits)))) + '/5';
       head.appendChild(c);
     }
     if (!S.pro && !$('.sk-pro-link')) {
