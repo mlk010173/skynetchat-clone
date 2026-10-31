@@ -1729,9 +1729,10 @@
   function toggleTema() {
     const claro = document.body.classList.contains('theme-white');
     S.theme = claro ? 'black' : 'white';
-    document.body.classList.toggle('theme-white', !claro);
-    document.body.style.background = claro ? '#000000' : '#ffffff';
-    document.documentElement.style.background = claro ? '#000000' : '#ffffff';
+    document.body.classList.remove('theme-white', 'theme-black');
+    document.body.classList.add(claro ? 'theme-black' : 'theme-white');
+    document.body.style.setProperty('background', claro ? '#000000' : '#ffffff', 'important');
+    document.documentElement.style.setProperty('background', claro ? '#000000' : '#ffffff', 'important');
     document.body.style.colorScheme = claro ? 'dark' : 'light';
     try { localStorage.setItem('skynet-theme-bg', claro ? 'black' : 'white'); } catch (e) {}
     save();
