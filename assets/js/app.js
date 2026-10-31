@@ -1276,6 +1276,29 @@
       el.addEventListener('click', (e) => { e.preventDefault(); openDrawer(); });
     });
 
+    // header: modo e tema
+    $('header button').forEach((b) => {
+      const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
+      const al = b.getAttribute('aria-label') || '';
+      if (/^SKYNETchat\s*4\.5/i.test(t)) {
+        b.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (window.__skInit) window.__skInit.tools();
+        });
+      }
+      if (!t && !al && /lua|moon|tema/i.test(b.className || '') ) {
+        b.addEventListener('click', () => toggleTema());
+      }
+    });
+    // botão sem rótulo do header (ícone de tema): alterna claro/escuro
+    const headBtns = $('header button').filter((b) => !(b.textContent || '').trim() && !b.getAttribute('aria-label'));
+    headBtns.forEach((b) => {
+      if (b.dataset.temaWired) return;
+      b.dataset.temaWired = '1';
+      b.addEventListener('click', (e) => { e.preventDefault(); toggleTema(); });
+    });
+
     // header / strip / global buttons
     $$('button').forEach((b) => {
       const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
@@ -1700,6 +1723,20 @@
       sync();
       document.body.appendChild(chip);
     }
+  }
+
+
+  function toggleTema() {
+    const claro = document.body.classList.contains('theme-white');
+    S.theme = claro ? 'black' : 'white';
+    document.body.classList.toggle('theme-white', !claro);
+    document.body.style.background = claro ? '#000000' : '#ffffff';
+    document.documentElement.style.background = claro ? '#000000' : '#ffffff';
+    document.body.style.colorScheme = claro ? 'dark' : 'light';
+    try { localStorage.setItem('skynet-theme-bg', claro ? 'black' : 'white'); } catch (e) {}
+    save();
+    applyThemeOnly();
+    toast(claro ? 'Modo escuro' : 'Modo claro');
   }
 
   function applyThemeOnly() {
