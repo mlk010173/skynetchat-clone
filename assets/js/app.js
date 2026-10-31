@@ -635,6 +635,15 @@
     const form = $$('form').find((f) => f.querySelector('textarea'));
     if (!form) return;
     const ta = form.querySelector('textarea');
+    // ao focar, garante que o composer fique visível com o teclado aberto
+    ta.addEventListener('focus', () => {
+      setTimeout(() => { try { ta.scrollIntoView({ block: 'end', behavior: 'smooth' }); } catch (e) {} }, 280);
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        if (document.activeElement === ta) { try { ta.scrollIntoView({ block: 'end' }); } catch (e) {} }
+      });
+    }
     try {
       const draft = localStorage.getItem('skynet-draft');
       if (draft) { ta.value = draft; localStorage.removeItem('skynet-draft'); }
