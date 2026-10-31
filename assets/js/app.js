@@ -453,9 +453,15 @@
     const files = pendingFiles.slice();
     if ((!prompt && !files.length) || generating) return;
     if (!S.logged) {
-      toast('Entre para conversar');
-      setTimeout(() => (location.href = 'login.html'), 500);
-      return;
+      if ((S.guestUsed || 0) >= 3) {
+        try { localStorage.setItem('skynet-draft', prompt); } catch (err) {}
+        toast('Limite de convidado. Crie sua conta para continuar');
+        setTimeout(() => (location.href = 'login.html'), 900);
+        return;
+      }
+      S.guestUsed = (S.guestUsed || 0) + 1;
+      save();
+      toast('Modo convidado: ' + (3 - S.guestUsed) + ' restante(s)');
     }
     if (!S.pro && S.credits <= 0) {
       openPanel('pro');
@@ -497,7 +503,7 @@
     generating = true;
     abortCtrl = new AbortController();
     setComposerBusy(true);
-    if (!S.pro) S.credits = Math.max(0, S.credits - 1);
+    if (!S.pro && S.logged) S.credits = Math.max(0, S.credits - 1);
     renderCredits();
 
     let acc = '';
@@ -629,6 +635,10 @@
     const form = $$('form').find((f) => f.querySelector('textarea'));
     if (!form) return;
     const ta = form.querySelector('textarea');
+    try {
+      const draft = localStorage.getItem('skynet-draft');
+      if (draft) { ta.value = draft; localStorage.removeItem('skynet-draft'); }
+    } catch (err) {}
     initAttachments(form);
     const sendBtn = form.querySelector('[aria-label="Enviar"], .composer-action, [aria-label="Voz"]');
     const micBtn = form.querySelector('[aria-label="Gravar áudio"]');
