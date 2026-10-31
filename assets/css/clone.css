@@ -534,3 +534,10 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
 .support-backdrop { pointer-events: none !important; opacity: 0 !important; }
 .support-widget:not(.sk-open) { pointer-events: none !important; }
 .fixed.inset-0.no-h-pan.overlay:not(.sk-open) { pointer-events: none !important; }
+
+/* composer: respiro no rodapé (safe-area) e teclado */
+@media (max-width: 900px) {
+  form:has(textarea) { padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+  textarea { min-height: 34px; max-height: 34vh; }
+}
+.sk-composer-boost { padding-bottom: env(safe-area-inset-bottom, 0px); }
