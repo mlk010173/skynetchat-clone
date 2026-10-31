@@ -1277,7 +1277,7 @@
     });
 
     // header: modo e tema
-    $('header button').forEach((b) => {
+    $$('header button').forEach((b) => {
       const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
       const al = b.getAttribute('aria-label') || '';
       if (/^SKYNETchat\s*4\.5/i.test(t)) {
@@ -1292,7 +1292,7 @@
       }
     });
     // botão sem rótulo do header (ícone de tema): alterna claro/escuro
-    const headBtns = $('header button').filter((b) => !(b.textContent || '').trim() && !b.getAttribute('aria-label'));
+    const headBtns = $$('header button').filter((b) => !(b.textContent || '').trim() && !b.getAttribute('aria-label'));
     headBtns.forEach((b) => {
       if (b.dataset.temaWired) return;
       b.dataset.temaWired = '1';
