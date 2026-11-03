@@ -4,6 +4,9 @@ Cópia fiel dos bundles servidos por `https://skynetchat.net/_app/immutable/` em
 (SvelteKit 2 + Vite). **158 arquivos** — 79 JS, 20 CSS, 59 fontes KaTeX, 1 manifest e service worker.
 Caminhos e nomes com hash preservados.
 
+**Publicados: 157 de 158 arquivos.** O módulo da página `/politicos` (`nodes/16.DrcJp8ja.js`) fica
+fora do repositório porque carrega um token Mapbox embutido — ver [`OMITIDO.md`](OMITIDO.md).
+
 ```
 frontend/_app/immutable/
   entry/      bootstrap (start + app com o dicionário de rotas)
