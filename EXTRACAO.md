@@ -10,9 +10,29 @@ Arquivos de evidência nesta pasta:
 
 | arquivo | conteúdo |
 |---|---|
-| `protocolo-sse-amostra.txt` | stream real de `/api/chat-V4.5` com o bloco de busca e as fontes |
-| `protocolo-sse-artefato.txt` | stream real de um pedido de página HTML (artefato) |
-| `componentes.html` | markup real dos componentes (card de pensamento, busca, ação, gaveta, artefato) |
+| `docs/protocolo-sse-amostra.txt` | stream real de `/api/chat-V4.5` com o bloco de busca e as fontes |
+| `docs/protocolo-sse-artefato.txt` | stream real de um pedido de página HTML (artefato) |
+| `docs/componentes.html` | markup real dos componentes (card de pensamento, busca, ação, gaveta, artefato) |
+| `docs/paginas.md` | as 22 páginas do bundle, as 19 rotas declaradas e o que cada módulo consome |
+| `docs/componentes-catalogo.md` | 57 escopos `svelte-*`, 1.341 classes CSS e os rótulos pt-BR por módulo |
+| `docs/cliente-api.md` | 65 endpoints `/api/*` que o front-end chama, com métodos e módulos |
+| `docs/design-tokens.md` | cores, raios e tipografia usados no CSS |
+| `frontend/` | os 158 arquivos do front-end (79 JS, 20 CSS, 59 fontes) em caminhos originais |
+
+### Mapa do front-end
+
+```
+frontend/_app/immutable/
+  entry/   start + app (dicionário de rotas: 19 rotas)
+  nodes/   22 módulos de página  (0-3 layouts, 4 home, 9 checkout, 16 políticos/OSINT,
+                                 19 termos, 20 chat V3, 21 Modo Voz com orb 3D)
+  chunks/  55 módulos compartilhados — o chat inteiro vive em Bg042Fap.js (1,5 MB)
+  assets/  20 CSS + 59 fontes KaTeX
+```
+
+O componente de chat não está em nenhuma página: `chunks/Bg042Fap.js` é importado por todas as
+rotas de conversa e concentra composer, lista de mensagens (`svelte-76r9u1`), card de pensamento e
+bloco de busca (`svelte-wgb08k`) e a gaveta de fontes (`svelte-1qhowmm`).
 
 ---
 
