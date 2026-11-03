@@ -1,0 +1,18 @@
+# Stream real: pedido de página HTML (artefato) em /api/chat-V4.5
+
+data: {"type": "start", "messageId": "mKC8Lo7MDFNHXLAg", "messageMetadata": {"presentationIntent": "PLAIN"}}
+data: {"type": "thinking-meta", "summaryTitle": "Criando o site"}
+data: {"type": "step-start", "stepId": "1iwTUvtR2YMXOA9D", "stepIndex": 0, "stepType": "thinking"}
+data: {"type": "step-delta", "stepId": "1iwTUvtR2YMXOA9D", "delta": "Interpretando o pedido e definindo a estrutura da interfaceâ€¦"}
+data: {"type": "assistant-preamble", "text": "Vou criar uma pÃ¡gina HTML com um contador de cliques interativo e a funcionalidade de download do cÃ³digo-fonte."}
+data: {"type": "step-delta", "stepId": "1iwTUvtR2YMXOA9D", "delta": "\nOrganizando seÃ§Ãµes, navegaÃ§Ã£o e comportamento responsivoâ€¦"}
+data: {"type": "step-end", "stepId": "1iwTUvtR2YMXOA9D", "title": "InstruÃ§Ãµes prontas"}
+data: {"type": "text-start", "id": "7c86pxTSyqfDzhiJ"}
+data: {"type": "thinking-complete", "totalSteps": 1}
+data: {"type": "text-delta", "id": "7c86pxTSyqfDzhiJ", "delta": "```html\n<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Click Master | Contador Interativo</title>\n    <script src=\"https://cdn.tailwindcss.com\"></script>\n    <script src=\"https://unpkg.com/lucide@latest\"></script>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <link href=\"https://fonts.googleapis.com/css2
+data: {"type": "text-delta", "id": "7c86pxTSyqfDzhiJ", "delta": " Mono"}
+data: {"type": "text-delta", "id": "7c86pxTSyqfDzhiJ", "delta": "',"}
+data: {"type": "text-delta", "id": "7c86pxTSyqfDzhiJ", "delta": " monospace"}
+data: {"type": "text-end", "id": "7c86pxTSyqfDzhiJ"}
+data: {"type": "roleplay-state", "isRoleplay": false}
+data: {"type": "finish"}
