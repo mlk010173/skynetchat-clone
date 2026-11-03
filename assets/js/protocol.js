@@ -343,6 +343,37 @@
       done(acc) {
         clearInterval(tick);
         clearInterval(iconWin._timer);
+        if (sources.length) {
+          const upBtn = li.querySelector('[data-act="up"]');
+          const row = upBtn && upBtn.parentElement;
+          if (row && !row.querySelector('[data-sources-chip]')) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.dataset.sourcesChip = '';
+            chip.setAttribute('aria-label', `Ver ${sources.length} fontes`);
+            chip.className =
+              'inline-flex items-center h-6 rounded-full px-2 gap-1 text-white/40 hover:text-white/80 hover:bg-white/10 transition-all duration-300 cursor-pointer';
+            const uniq = [];
+            for (const s of sources) {
+              if (!uniq.includes(s.domain)) uniq.push(s.domain);
+              if (uniq.length >= 4) break;
+            }
+            chip.innerHTML =
+              '<span class="flex shrink-0 items-center gap-0.5">' +
+              uniq
+                .map(
+                  (d) =>
+                    `<img alt="" width="14" height="14" class="rounded-full shrink-0" style="width:14px;height:14px" src="${fav(d)}">`
+                )
+                .join('') +
+              `</span><span class="text-xs font-normal whitespace-nowrap">${sources.length} fontes</span>`;
+            chip.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openSources(sources);
+            });
+            row.insertBefore(chip, row.firstChild);
+          }
+        }
         const secs = Math.max(1, Math.round((performance.now() - t0) / 1000));
         labelEl.textContent = acc ? `Trabalhou por ${secs}s` : 'Trabalho concluído';
         content.innerHTML = md(acc || '_(sem resposta)_', sources);
