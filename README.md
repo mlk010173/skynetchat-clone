@@ -75,6 +75,13 @@ text-start · text-delta · text-end · follow-ups · roleplay-state · finish`.
 Endpoints e payloads completos: **[EXTRACAO.md](EXTRACAO.md)** — inclui a amostra do stream real
 (`docs/protocolo-sse-amostra.txt`), o stream de artefato e o markup capturado (`docs/componentes.html`).
 
+### Análise com o framework REA
+
+A pasta **[rea/](rea/)** guarda a saída do [REA](https://github.com/morluto/rea) (`rea-agents` 6.8.0)
+contra o site no ar: análise de bundle, inspeção passiva, exportação dos scripts do navegador e o
+grafo de aplicação. São 54 scripts analisados, 42 endpoints com arquivo e linha exatos, 90 endpoints
+únicos no grafo e 14 chaves de armazenamento. Relatório completo em **[rea/RELATORIO.md](rea/RELATORIO.md)**.
+
 ### Modo API
 
 Em *Configurar IA* informe `endpoint` (ex.: `https://skynetchat.net` ou seu backend), a `version`
