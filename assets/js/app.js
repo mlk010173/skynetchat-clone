@@ -493,11 +493,10 @@
     let mode = ($('.composer-mode-label') || {}).textContent?.trim() || 'Rápido';
     if (mode === 'Rápido' && /^\s*(pesquis|busque|procure|pesquisa)/i.test(prompt)) mode = 'Pesquisa';
     if (mode === 'Rápido' && /\b(max|profund|detalhad)\b/i.test(prompt)) mode = 'MAX';
-    const steps = buildSteps(enginePrompt || 'arquivos anexados', mode);
-    const trace = traceEl();
-    li.insertBefore(trace, body);
-    const traceBody = trace.querySelector('[data-trace-body]');
-    const traceMeta = trace.querySelector('[data-trace-meta]');
+    const proto = window.SKYN;
+    const t0 = performance.now();
+    let acc = '';
+    const ctrl = proto.trace(li, body, content);
     scrollToEnd();
 
     generating = true;
@@ -506,76 +505,62 @@
     if (!S.pro && S.logged) S.credits = Math.max(0, S.credits - 1);
     renderCredits();
 
-    let acc = '';
-    let pending = '';
-    let raf = null;
-    const paint = () => {
-      raf = null;
-      content.innerHTML = mdBlocks(acc) + '<span class="sk-caret"></span>';
-      scrollToEnd();
-    };
-    const onDelta = (t) => {
-      acc += t;
-      if (!raf) raf = requestAnimationFrame(paint);
+    const onText = (t) => { acc += t; ctrl.text(acc); };
+    const onEvent = (ev) => {
+      ctrl.event(ev);
+      if (ev.type === 'follow-ups') proto.followUps(li, ev.questions, (q) => send(q));
     };
 
-    const t0 = performance.now();
     try {
-      // log de pensamento (streaming das etapas)
-      for (const st of steps) {
-        if (!generating) break;
-        traceBody.appendChild(traceLine(st.label, st.text));
-        traceMeta.textContent = `${traceBody.children.length} passos · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
-        scrollToEnd();
-        await new Promise((r) => setTimeout(r, 90 + Math.random() * 120));
-      }
-      const finalLine = traceLine('gerar', 'escrevendo resposta em tempo real');
-      traceBody.appendChild(finalLine);
-      scrollToEnd();
-
       if (S.settings.engine === 'api' && S.settings.endpoint) {
         const msgs = conv.messages
           .filter((m) => m.role === 'user' || m.role === 'assistant')
           .map((m) => ({ role: m.role, content: m.content + (m.files && m.files.length ? `\n[anexos: ${m.files.map((f) => f.name).join(', ')}]` : '') }));
-        await apiStream(msgs, onDelta, abortCtrl.signal);
-        if (!acc) throw new Error('Resposta vazia');
+        await proto.apiStream(msgs, { mode, settings: S.settings, signal: abortCtrl.signal, onText, onEvent });
       } else {
-        const full = demoReply(enginePrompt);
-        const chunks = full.match(/\s*\S+|\s+/g) || [full];
-        for (const ch of chunks) {
-          if (!generating) break;
-          await new Promise((r) => setTimeout(r, 18 + Math.random() * 34));
-          onDelta(ch);
-        }
+        await proto.demoStream(enginePrompt || 'arquivos anexados', mode, {
+          onText,
+          onEvent,
+          isCancelled: () => !generating,
+        });
       }
+      if (!acc) throw new Error('Resposta vazia');
     } catch (err) {
       acc += `\n\n> ⚠️ Falha ao falar com a API (${String(err.message || err).slice(0, 160)}).\n> Abra **Configurar IA** e verifique endpoint, modelo e chave. O modo demo continua funcionando.`;
     }
 
-    if (raf) cancelAnimationFrame(raf);
-    traceMeta.textContent = `${traceBody.children.length} passos · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
-    trace.classList.add('open');
-    trace.querySelector('.sk-trace-arrow').textContent = '▾';
-    content.innerHTML = mdBlocks(acc || '_(sem resposta)_');
+    const convSources = ctrl.sources();
+    ctrl.done(acc);
     actions.style.opacity = '1';
     actions.style.pointerEvents = 'auto';
     body.classList.remove('is-streaming');
 
-    conv.messages.push({ role: 'assistant', content: acc, trace: steps, ts: Date.now() });
+    // artefatos HTML: baixar / pré-visualizar
+    li.querySelectorAll('[data-artifact]').forEach((card) => {
+      if (card.dataset.wired) return;
+      card.dataset.wired = '1';
+      const getCode = () => (acc.match(/```(?:html|htm)\n([\s\S]*?)```/) || [])[1] || '';
+      const nameEl = card.querySelector('.font-semibold');
+      card.querySelector('[data-artifact-download]').addEventListener('click', () => {
+        proto.downloadArtifact(nameEl ? nameEl.textContent : 'pagina', getCode());
+      });
+      card.querySelector('[data-artifact-open]').addEventListener('click', () => {
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(getCode()); w.document.close(); }
+      });
+    });
+
+    conv.messages.push({ role: 'assistant', content: acc, trace: [], sources: convSources, ts: Date.now() });
     conv.updated = Date.now();
     save();
     renderHistory();
 
-    if (mode === 'Pesquisa') {
-      try {
-        const last = listEl.lastElementChild;
-        const card = window.__skInit ? window.__skInit.src(enginePrompt) : document.createElement('div');
-        if (last && last.querySelector('[data-ai-content]')) last.appendChild(card); else listEl.appendChild(card);
-        const am = conv.messages[conv.messages.length - 1];
-        if (am && am.role === 'assistant') am.sources = true;
-        save();
-      } catch (e) { console.warn('[SKYNET] fontes', e); }
+    if (convSources.length) {
+      const am = conv.messages[conv.messages.length - 1];
+      am.sources = true;
+      save();
     }
+
     generating = false;
     abortCtrl = null;
     setComposerBusy(false);
