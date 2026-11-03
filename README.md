@@ -56,6 +56,36 @@ Rápido · MAX (4.5, raciocínio profundo) · Pesquisa (detecta "pesquise..." e 
 `pro: true` por padrão: mensagens ilimitadas, todos os painéis, selo **PRO** no cabeçalho.
 Em *Configurar IA → Conta* dá para voltar ao Free (5 mensagens) e testar o upgrade.
 
+
+## Protocolo do chat (extraído do site original)
+
+`assets/js/protocol.js` reproduz o contrato real de streaming da SKYNETchat:
+eventos `start · thinking-meta · step-start · step-delta · step-end · thinking-complete ·
+text-start · text-delta · text-end · follow-ups · roleplay-state · finish`.
+
+| Peça | O que faz |
+|---|---|
+| `SKYN.parseSSE` / `SKYN.readStream` | lê o SSE (`data: {json}`) igual ao app original |
+| `SKYN.trace` | card "Pensando → Trabalhando por Ns → Trabalhou por Ns", pilha de favicons animada, "Pesquisou em N fontes" e bloco de busca com "N resultados" |
+| `SKYN.md` | markdown com citações `[n]` → `.citation-row > .citation-pill` e cercas `html` → chip de artefato com **Baixar** |
+| `SKYN.openSources` | gaveta de fontes (bottom sheet no mobile, painel à direita no desktop) |
+| `SKYN.demoStream` | emite a mesma sequência de eventos do servidor, com fontes reais (Wikipédia via CORS + busca nos domínios de notícia) |
+| `SKYN.apiStream` | modo real: consome o SSE de `skynetchat.net` ou do seu backend |
+
+Endpoints e payloads completos: **[EXTRACAO.md](EXTRACAO.md)** — inclui a amostra do stream real
+(`docs/protocolo-sse-amostra.txt`), o stream de artefato e o markup capturado (`docs/componentes.html`).
+
+### Modo API
+
+Em *Configurar IA* informe `endpoint` (ex.: `https://skynetchat.net` ou seu backend), a `version`
+(`V4_5`, `V4_5_MAX`, `V3`, `V3_THINKING`, `V2_FAST`, `V1`) e, se precisar, a chave. O corpo enviado é
+o mesmo do original:
+
+```json
+{ "id": "…", "messages": [{ "parts": [{ "type": "text", "text": "…" }], "id": "…", "role": "user" }],
+  "trigger": "submit-message", "historyExcludedMessageIds": [], "conversationId": "…", "hasGeneratedImage": false }
+```
+
 ## Auditoria automatizada
 
 Verificado em contexto anônimo (sem cookies/sessão) via DevTools, no app e no login:
