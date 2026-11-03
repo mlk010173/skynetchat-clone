@@ -40,7 +40,13 @@
       return '';
     }
   };
-  const label = (domain) => String(domain || '').replace(/^www\./, '').split('.')[0];
+  const TLD = new Set(['com', 'org', 'net', 'gov', 'edu', 'io', 'ai', 'co', 'br', 'de', 'uk', 'info', 'dev', 'app', 'me', 'tv', 'news', 'blog', 'site']);
+  const label = (domain) => {
+    const parts = String(domain || '').replace(/^www\./, '').split('.').filter(Boolean);
+    let rest = parts.filter((p) => !TLD.has(p));
+    if (rest.length > 1 && rest[0].length <= 2) rest = rest.slice(1);
+    return rest.slice(0, 2).join('.') || parts[0] || '';
+  };
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const uid = (n) =>
     Array.from({ length: n || 16 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 58)]).join('');
@@ -513,8 +519,16 @@
     for (const [domain, mk] of NEWS_DOMAINS) {
       out.push({ title: `${q.slice(0, 70)} — ${domain}`, url: mk(q.slice(0, 90)), domain });
     }
+    // intercala enciclopédia e imprensa para a lista não ficar homogênea
+    const wikiOut = out.filter((s) => s.domain === 'pt.wikipedia.org');
+    const newsOut = out.filter((s) => s.domain !== 'pt.wikipedia.org');
+    const mixed = [];
+    for (let i = 0; i < Math.max(wikiOut.length, newsOut.length); i++) {
+      if (wikiOut[i]) mixed.push(wikiOut[i]);
+      if (newsOut[i]) mixed.push(newsOut[i]);
+    }
     const seen = new Set();
-    return out.filter((s) => (seen.has(s.url) ? false : seen.add(s.url)));
+    return mixed.filter((s) => (seen.has(s.url) ? false : seen.add(s.url)));
   }
 
   const PLAN = {
