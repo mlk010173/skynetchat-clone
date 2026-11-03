@@ -541,3 +541,14 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", 
   textarea { min-height: 34px; max-height: 34vh; }
 }
 .sk-composer-boost { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* ---- blocos de código e artefatos do protocolo SKYNET ---- */
+.sk-code { margin: 16px 0; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); background: #1e1e1e; }
+.sk-code-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.5); border-bottom: 1px solid rgba(255,255,255,.07); }
+.sk-code-head button { font-size: 11px; text-transform: none; letter-spacing: 0; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.14); color: rgba(255,255,255,.75); cursor: pointer; background: transparent; }
+.sk-code-head button:hover { background: rgba(255,255,255,.08); }
+.sk-pre { margin: 0; padding: 14px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.6; color: #e6e6e6; }
+.sk-pre code { background: none; padding: 0; font-size: inherit; }
+.sk-caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; background: rgba(255,255,255,.75); animation: sk-blink 1s steps(2, start) infinite; }
+@keyframes sk-blink { to { visibility: hidden; } }
+[data-artifact] button[data-artifact-download] { font-family: inherit; }
